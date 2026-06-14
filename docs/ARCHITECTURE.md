@@ -53,6 +53,11 @@ This replaces the old approach of:
 
 The GMod backend now owns generated loaders and `AddCSLuaFile` batching.
 
+Shader maintenance source is the one exception to the module list:
+`packages/lux/mgfx/shadersrc` contains HLSL, committed `.vcs` output, and the
+shaderpack generator. It is build input, not a Lux module. The binary shader
+compiler lives outside the package tree under `packages/tools/mgfx`.
+
 ## Runtime Shape
 
 `@lux/mgfx` is client-only. The root module imports the feature modules and

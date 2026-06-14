@@ -45,6 +45,11 @@ client fn createMgfxState() {
 
 ```text
 packages/lux/mgfx/
+  shadersrc/
+    build.py
+    build_shaders.bat
+    compile_shader_list.txt
+    src/
   shaderpack/src/cl_module.lux
   materials/src/
     module.lux
@@ -60,14 +65,43 @@ packages/lux/mgfx/
   style/src/
 ```
 
-历史 shader 源码和 SDK 工具可能仍保存在原 addon 备份或构建工作区里，但它们不属于
-文档站，也不会被复制进 Lux 项目。package 提交中应包含编译器可以直接消费的
-shaderpack Lux module。
+`shadersrc/src/` 保存 MGFX 的 HLSL 源码，并在 `shaders/fxc/` 下提交当前 `.vcs`
+产物。提交 `.vcs` 的目的，是让维护者即使暂时不能运行 shader compiler，也能用
+pack-only 模式重新生成 Lux shaderpack。
+
+Windows shader compiler 作为仓库级构建工具随仓库携带，但它不放进 `lux/mgfx`
+package 树：
+
+```text
+packages/tools/mgfx/sdk_screenspace_shaders/shadersrc/bin/ShaderCompile.exe
+```
+
+这个二进制工具链不是 `lux/mgfx` 的 module layout，也不会被复制进生成 addon。它只给
+MGFX 维护者从源码重新编译 shader bytecode 使用。Garry's Mod 本身不自带 shader
+compiler，因此构建只能使用这个随仓库携带的工具，或者显式设置 `MGFX_SHADERCOMPILE`
+指向另一个 `ShaderCompile.exe`。
 
 ## 重新生成契约
 
 当 shader bytecode 变化时，最终结果必须重新生成到
 `packages/lux/mgfx/shaderpack/src/cl_module.lux`。
+
+在 `packages/lux/mgfx/shadersrc` 下常用的维护命令：
+
+```powershell
+# 把已提交的 .vcs 文件重新打包进 Lux shaderpack module。
+python .\build.py --pack-only
+
+# 复现当前已提交版本。
+python .\build.py --pack-only --version 1781243087 --gma-timestamp 1781243088
+
+# 使用随仓库携带的 compiler 重新编译 HLSL，然后生成 Lux module。
+python .\build.py
+
+# 测试其他 ShaderCompile.exe 构建时，可以覆盖默认 compiler。
+$env:MGFX_SHADERCOMPILE = "C:\Path\To\ShaderCompile.exe"
+python .\build.py
+```
 
 生成模块需要提供这个公开形状：
 

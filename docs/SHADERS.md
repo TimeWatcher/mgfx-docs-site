@@ -50,6 +50,11 @@ The runtime package source is:
 
 ```text
 packages/lux/mgfx/
+  shadersrc/
+    build.py
+    build_shaders.bat
+    compile_shader_list.txt
+    src/
   shaderpack/src/cl_module.lux
   materials/src/
     module.lux
@@ -65,15 +70,43 @@ packages/lux/mgfx/
   style/src/
 ```
 
-Historical shader source and SDK tooling may still exist in the original addon
-backup or a build workspace, but they are not part of the documentation site and
-are not copied into a Lux project. The package commit should contain the
-compiled shaderpack Lux module that the compiler can consume directly.
+`shadersrc/src/` contains the MGFX HLSL source and the committed `.vcs` output
+under `shaders/fxc/`. The committed `.vcs` files make pack-only regeneration
+possible even when the shader compiler cannot run on the current machine.
+
+The Windows shader compiler is carried as repository-level build
+infrastructure, outside the Lux package tree:
+
+```text
+packages/tools/mgfx/sdk_screenspace_shaders/shadersrc/bin/ShaderCompile.exe
+```
+
+That binary toolchain is not part of the `lux/mgfx` module layout and is not
+copied into a generated addon. It exists only so MGFX maintainers can rebuild
+shader bytecode from source. Garry's Mod itself does not ship a shader compiler,
+so builds must use this bundled tool or an explicit `MGFX_SHADERCOMPILE` path.
 
 ## Rebuild Contract
 
 When shader bytecode changes, the result must be regenerated into
 `packages/lux/mgfx/shaderpack/src/cl_module.lux`.
+
+Common maintenance commands from `packages/lux/mgfx/shadersrc`:
+
+```powershell
+# Repack committed .vcs files into the Lux shaderpack module.
+python .\build.py --pack-only
+
+# Reproduce the current checked-in version.
+python .\build.py --pack-only --version 1781243087 --gma-timestamp 1781243088
+
+# Recompile HLSL with the bundled compiler, then regenerate the Lux module.
+python .\build.py
+
+# Override the bundled compiler when testing another ShaderCompile.exe build.
+$env:MGFX_SHADERCOMPILE = "C:\Path\To\ShaderCompile.exe"
+python .\build.py
+```
 
 The generated module must provide this public shape:
 
