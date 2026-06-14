@@ -1,0 +1,16 @@
+{
+  "name": "mgfx-docs-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev docs --host 127.0.0.1",
+    "build": "vitepress build docs",
+    "preview": "vitepress preview docs --host 127.0.0.1",
+    "docs:dev": "npm run dev",
+    "docs:build": "npm run build",
+    "docs:preview": "npm run preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}

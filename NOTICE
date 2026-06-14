@@ -1,0 +1,17 @@
+MGFX Documentation Site
+Copyright (c) 2026 TimeWatcher and contributors.
+
+Documentation site source code is available under MIT OR Apache-2.0.
+Documentation prose is available under CC-BY-4.0. See LICENSE for the
+repository licensing policy.
+
+The documented MGFX runtime package is separately licensed under the Lux MGFX
+Non-Commercial License. Non-commercial use is permitted under that license.
+Commercial use requires a separate written license from the copyright holder.
+
+This repository documents the Lux-based MGFX package, currently distributed as
+@lux/mgfx through the Lux package set. Using the documentation does not grant a
+commercial MGFX runtime license.
+
+The Lux and MGFX names, logos, icons, and other branding assets are not licensed
+for reuse by the open source licenses in this repository.

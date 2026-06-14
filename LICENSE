@@ -1,0 +1,22 @@
+MGFX documentation site licensing
+================================
+
+Unless a file says otherwise:
+
+- Documentation site source code, theme code, build scripts, command examples,
+  configuration examples, and generated-code snippets are licensed under either
+  the MIT License or the Apache License, Version 2.0, at your option.
+- Documentation prose is licensed under Creative Commons Attribution 4.0
+  International (CC BY 4.0).
+- The MGFX runtime package documented by this repository is separately licensed
+  under the Lux MGFX Non-Commercial License.
+- The Lux and MGFX names, logos, icons, and other branding assets are not
+  licensed for reuse by these open source licenses.
+
+See:
+
+- LICENSE-MIT
+- LICENSE-APACHE
+- LICENSE-DOCS
+- LICENSE-MGFX-NC
+- NOTICE
