@@ -1,7 +1,7 @@
 # Detailed API Reference
 
 This is the function-level reference for the MGFX public API. Start with
-[Use MGFX from Lux](../USAGE) if you are setting up a project, and read
+[Use MGFX](../USAGE) if you are setting up a project, and read
 [API Overview](../API) for the conceptual model.
 
 MGFX has two public surfaces:

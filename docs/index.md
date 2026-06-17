@@ -4,11 +4,14 @@ layout: home
 hero:
   name: "MGFX"
   text: "Modern GMod FX"
-  tagline: "A Lux package for shader-backed immediate UI rendering in Garry's Mod. Import @lux/mgfx from Lux source, let luxc generate the GMod loader, and expose MGFX.* only when GLua-facing code needs it."
+  tagline: "Shader-backed immediate UI rendering for Garry's Mod. Use @lux/mgfx from Lux, or ship the generated loader and call MGFX.* from plain GLua."
   actions:
     - theme: brand
+      text: Use with Plain GLua
+      link: /USAGE#use-with-plain-glua
+    - theme: alt
       text: Use from Lux
-      link: /USAGE
+      link: /USAGE#use-from-lux
     - theme: alt
       text: API Reference
       link: /API
@@ -17,6 +20,8 @@ hero:
       link: /zh/
 
 features:
+  - title: Use with Plain GLua
+    details: Existing addons can mount the generated loader distribution and call MGFX.StartPanel, MGFX.RoundedBoxEx, gradients, text, widgets, and diagnostics through MGFX.*.
   - title: Native Lux package
     details: MGFX lives in @lux/mgfx, uses Lux module parts, client realm exports, and compiler-generated GMod loaders instead of hand-written include order.
   - title: Shape-correct effects
@@ -26,6 +31,30 @@ features:
   - title: Efficient parameter upload
     details: Hot shape parameters use the matrix-backed parameter page instead of many per-float Source material calls.
 ---
+
+## Use with Plain GLua
+
+Use the generated loader distribution when an addon is still written in GLua.
+After the client loader runs, MGFX installs the global facade and existing
+panels can call `MGFX.*` directly.
+
+```lua
+function PANEL:Paint(w, h)
+  MGFX.StartPanel(self, w, h)
+  MGFX.RoundedBoxEx(0, 0, w, h, {
+    radius = 10,
+    fill = MGFX.LinearGradient(
+      0,
+      0,
+      1,
+      1,
+      Color(30, 130, 255, 230),
+      Color(255, 210, 110, 230)
+    ),
+  })
+  MGFX.EndPanel()
+end
+```
 
 ## Quick Start from Lux
 
@@ -96,8 +125,13 @@ end
 ## Documentation Entry Points
 
 <div class="mgfx-capability-grid">
-  <a href="./USAGE">
+  <a href="./USAGE#use-with-plain-glua">
     <span>Start</span>
+    <strong>Use with Plain GLua</strong>
+    <small>Mount the generated loader distribution, then call the installed MGFX.* facade from existing panels.</small>
+  </a>
+  <a href="./USAGE#use-from-lux">
+    <span>Lux</span>
     <strong>Use from Lux</strong>
     <small>Install luxc, import @lux/mgfx, expose MGFX.* when needed, and build the generated GMod addon.</small>
   </a>

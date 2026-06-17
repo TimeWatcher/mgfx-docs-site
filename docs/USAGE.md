@@ -1,69 +1,104 @@
-# Use MGFX from Lux
+# Use MGFX
 
-MGFX used to be a standalone GLua addon written directly in Lua. The current
-version is a Lux package named `@lux/mgfx`. That means you do not hand-maintain
-the old MGFX loader or include order. You import MGFX from Lux source, and
-`luxc gmod build` compiles the package, splits realms, emits Lua artifacts, and
-generates the GMod loader that sends client files.
+MGFX is authored as the Lux package `@lux/mgfx`, but it has two supported
+consumption paths:
 
-The generated runtime still exposes familiar GMod-side APIs such as `MGFX.*`
-when you install the package globally. Lux source should prefer the typed module
-surface (`mgfx.paint`, `mgfx.style`, `mgfx.frame`, and similar), while legacy
-GLua panels can keep calling `MGFX.RoundedBoxEx`, `MGFX.StartPanel`, and other
-PascalCase helpers after installation.
+- **Use with Plain GLua**: mount the generated loader distribution and call the
+  installed `MGFX.*` facade from existing Lua files.
+- **Use from Lux**: import `@lux/mgfx` from Lux source and let `luxc gmod build`
+  compile the package into the addon output.
 
-## Install the Toolchain
+New Lux code should prefer explicit module imports such as `mgfx.paint`,
+`mgfx.style`, `mgfx.frame`, and `mgfx.widgets`. Existing GLua panels can keep
+the familiar PascalCase facade such as `MGFX.StartPanel`,
+`MGFX.RoundedBoxEx`, `MGFX.LinearGradient`, and `MGFX.TextEx`.
 
-Download a Lux release from the main Lux repository:
+<span id="use-with-plain-glua"></span>
 
-```text
-tools/
-  luxc/
-    luxc.exe
-    packages/
-```
+## Use with Plain GLua
 
-Keep `packages/` next to `luxc.exe`. The release packages contain `@lux/mgfx`,
-`@lux/gmod`, `@lux/std`, and the other built-in packages. If you are using a
-source checkout instead of a release archive, clone the main repository with
-submodules so the package repository is present.
-
-## Project Layout
-
-Create your normal GMod addon directory and put Lux source under `src/`:
+Use the generated loader distribution when an addon is still written in GLua or
+when you want to adopt MGFX without adopting Lux source in that project. Copy or
+mount the generated `lua/` tree from the MGFX release into the addon. The client
+loader initializes MGFX and installs `_G.MGFX` by default.
 
 ```text
 my_addon/
-  addon.json
-  lux.toml
-  src/
-    hud/
-      module.lux
+  lua/
+    autorun/
+      mgfx.lua
+    mgfx/
+      loader_shared.lua
+      loader_client.lua
+      loader_server.lua
+      ...
+```
+
+After the loader has run, draw through `MGFX.*`:
+
+```lua
+function PANEL:Paint(w, h)
+  MGFX.StartPanel(self, w, h)
+
+  MGFX.RoundedBoxEx(0, 0, w, h, {
+    radius = 10,
+    fill = MGFX.LinearGradient(
+      0,
+      0,
+      1,
+      1,
+      Color(30, 130, 255, 230),
+      Color(255, 210, 110, 230)
+    ),
+    backdrop = { blur = 8, tint = Color(0, 8, 12, 120) },
+  })
+
+  MGFX.EndPanel()
+end
+```
+
+The plain GLua distribution is not a hand-written legacy loader and it is not an
+inline copy of the package. It is generated from the same Lux MGFX source, with
+the GMod loader already emitted and the global facade installed for non-Lux
+callers.
+
+<span id="use-from-lux"></span>
+
+## Use from Lux
+
+Create a Lux project and install the required packages:
+
+```powershell
+luxc init my_addon --std
+Push-Location my_addon
+luxc install @lux/mgfx --from github:TimeWatcher/lux-mgfx
+Pop-Location
 ```
 
 Recommended `lux.toml`:
 
 ```toml
-[gmod]
 package_id = "my_addon"
 bundle_id = "my_addon"
+
+[target.gmod]
 source_root = "src"
-addon_root = "."
-generated_root = "generated"
+out = "generated/lua"
+runtime_base = "lux/my_addon"
+autorun = true
 source_comments = "readable"
 
 [target.gmod.realm]
 unknown_external = "warn"
+
+[dependencies]
+"@lux/std" = { github = "TimeWatcher/lux-packages" }
+"@lux/mgfx" = { github = "TimeWatcher/lux-mgfx" }
 ```
 
-If you vendor packages manually, add package roots:
-
-```toml
-package_roots = "vendor/lux-packages"
-```
-
-Normal release users do not need this, because compiler-shipped packages are
-found automatically.
+Lux has no registry. The manifest names concrete package sources with
+`github`, `url`, or `path`, and `lux.lock` records the resolved package graph.
+Use `--tag`, `--branch`, or `--commit` when a project needs a pinned package set.
 
 ## Import MGFX
 
@@ -149,10 +184,10 @@ end
 This is the preferred style for new Lux code. It keeps imports explicit, gives
 the compiler realm information, and avoids relying on a global.
 
-## Expose the Legacy-Style Global API
+## Expose the GLua Facade from Lux
 
-If you need old GLua code or VGUI panels to call `MGFX.*`, install the global
-API once on the client:
+If old GLua code or VGUI panels in the same addon need to call `MGFX.*`, install
+the global API once on the client:
 
 ::: code-group
 
@@ -190,51 +225,38 @@ hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
 
 :::
 
-The installed owner uses PascalCase method names for GMod ergonomics:
-`StartPanel`, `RoundedBoxEx`, `LinearGradient`, `TextEx`, `Status`, and similar.
-The Lux modules keep lower-case names such as `mgfx.paint.roundedBoxEx`.
+The installed owner uses PascalCase method names for GMod ergonomics. The Lux
+modules keep lower-case names such as `mgfx.paint.roundedBoxEx`.
 
 ## Build the Addon
 
-Run the GMod backend:
+Run the GMod backend from the project root:
 
 ```powershell
 luxc gmod build --manifest lux.toml
 ```
 
-The build does these MGFX-specific jobs for you:
+The build step:
 
-- resolves `@lux/mgfx` from the package roots
-- compiles every imported MGFX module part
-- keeps all MGFX exports client-only
-- batches generated `AddCSLuaFile` calls through the generated loader
+- resolves `@lux/mgfx` from `lux.lock`
+- compiles the imported MGFX module parts
+- keeps MGFX exports client-only
+- writes generated Lua under `target.gmod.out`
 - emits source maps for generated Lua
-- writes generated Lua under `generated_root`
+- generates the GMod loader and optional `autorun` forwarder
 
-You then copy or mount the generated `lua/` tree as part of your addon, or use
-your existing development workflow to point Garry's Mod at the generated addon
-layout.
+Copy or mount the generated `lua/` tree as part of your addon, or point the
+manifest `out` path at the Lua root used by your local development workflow.
 
 ## What Happened to the Old Lua Addon?
 
 The original MGFX was a direct Lua addon under `garrysmod/addons/mgfx`. That
-history matters for API continuity, but it is no longer the primary
-distribution model in Lux projects.
+history matters for API continuity, but the current source of truth is the Lux
+package. Do not copy the old hand-written autorun loaders into new projects.
 
-Do not copy the old `lua/autorun/server/mgfx_loader.lua` and
-`lua/autorun/client/mgfx_loader.lua` into new Lux projects. The Lux GMod backend
-owns loader generation. New MGFX source lives in the package tree:
-
-```text
-packages/lux/mgfx/
-  src/
-  frame/src/
-  paint/src/
-  style/src/
-  text/src/
-  widgets/src/
-  ...
-```
+Plain GLua users should use the generated loader distribution. Lux users should
+import `@lux/mgfx` and let `luxc gmod build` generate the loader for that
+project.
 
 The package is split into Lux modules and module parts. For example,
 `widgets/src/module.lux` declares a stable part order:

@@ -8,10 +8,11 @@ Lux-based rendering package for Garry's Mod.
 - Main Lux repository: <https://github.com/TimeWatcher/lux>
 - Lux packages repository: <https://github.com/TimeWatcher/lux-packages>
 
-MGFX used to be a direct Lua addon. The current version documented here is the
-Lux package `@lux/mgfx`: developers import it from Lux source, compile with
-`luxc gmod build`, and let Lux generate the GMod loader and client file
-delivery.
+MGFX used to be a direct Lua addon. The current source of truth documented here
+is the Lux package `@lux/mgfx`: developers can import it from Lux source and let
+`luxc gmod build` generate the GMod loader and client file delivery. Existing
+GLua projects can instead use the generated loader distribution, which installs
+the familiar `MGFX.*` facade by default.
 
 ## Local Development
 
@@ -51,7 +52,7 @@ docs/
   zh/API.md                Chinese API overview
   api-reference/           English detailed API pages
   zh/api-reference/        Chinese detailed API pages
-  USAGE.md                 Using @lux/mgfx from Lux
+  USAGE.md                 Using MGFX from Lux or Plain GLua
   ARCHITECTURE.md          Lux package architecture
   SHADERS.md               Shaderpack and material notes
   .vitepress/              VitePress config and theme
@@ -66,7 +67,9 @@ Simplified Chinese versions together.
 Documentation should describe the current Lux package architecture:
 
 - Use `@lux/mgfx` imports for new Lux projects.
-- Treat `MGFX.*` as an optional installed facade for GLua-facing code.
+- Treat `MGFX.*` as the installed facade for Plain GLua and GLua-facing code.
+- Document generated loader distributions for non-Lux users; do not present
+  them as hand-written legacy loaders or inline copies.
 - Do not document the old hand-written MGFX autorun loader as the primary path.
 - Explain generated Lua shape only when it helps Lux developers understand what
   `luxc` emits.
@@ -104,7 +107,8 @@ See [LICENSE](LICENSE), [LICENSE-MIT](LICENSE-MIT),
 ## 中文说明
 
 这个仓库是 MGFX 的独立文档站。这里记录的是当前 Lux 版本的 MGFX，也就是
-`@lux/mgfx` package，而不是旧的纯 Lua addon 加载方式。
+`@lux/mgfx` package。Lux 用户可以导入 package 并让 `luxc gmod build` 生成 loader；
+普通 GLua 用户则使用生成好的 loader 分发，它会默认安装熟悉的 `MGFX.*` facade。
 
 常用命令：
 

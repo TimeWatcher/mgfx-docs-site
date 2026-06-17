@@ -4,11 +4,14 @@ layout: home
 hero:
   name: "MGFX"
   text: "Modern GMod FX"
-  tagline: "面向 Garry's Mod 的 Lux 渲染 package。开发者在 Lux 中导入 @lux/mgfx，由 luxc 生成 GMod loader；只有需要兼容 GLua 调用时才安装 MGFX.* 全局 API。"
+  tagline: "面向 Garry's Mod 的 shader-backed immediate UI renderer。可以从 Lux 导入 @lux/mgfx，也可以使用生成好的 loader，在普通 GLua 里调用 MGFX.*。"
   actions:
     - theme: brand
+      text: Plain GLua 使用
+      link: /zh/USAGE#use-with-plain-glua
+    - theme: alt
       text: 在 Lux 中使用
-      link: /zh/USAGE
+      link: /zh/USAGE#use-from-lux
     - theme: alt
       text: API 参考
       link: /zh/API
@@ -17,6 +20,8 @@ hero:
       link: /
 
 features:
+  - title: Plain GLua 可直接使用
+    details: 现有 addon 可以挂载生成好的 loader 分发，并通过 MGFX.StartPanel、MGFX.RoundedBoxEx、gradient、text、widget 和诊断接口调用 MGFX.*。
   - title: 原生 Lux package
     details: MGFX 位于 @lux/mgfx，使用 module part、client realm export 和编译器生成的 GMod loader，不再手写 include 顺序。
   - title: 按形状裁剪的效果
@@ -26,6 +31,29 @@ features:
   - title: 矩阵参数上传
     details: 热路径参数优先用 $viewprojmat / c11 一次上传，SetFloat 只作为辅助参数页。
 ---
+
+## 给 Plain GLua 使用
+
+当 addon 仍然是普通 GLua 时，直接使用生成好的 loader 分发。客户端 loader 运行后会安装
+全局 `MGFX` facade，已有 panel 可以直接调用 `MGFX.*`。
+
+```lua
+function PANEL:Paint(w, h)
+  MGFX.StartPanel(self, w, h)
+  MGFX.RoundedBoxEx(0, 0, w, h, {
+    radius = 10,
+    fill = MGFX.LinearGradient(
+      0,
+      0,
+      1,
+      1,
+      Color(30, 130, 255, 230),
+      Color(255, 210, 110, 230)
+    ),
+  })
+  MGFX.EndPanel()
+end
+```
 
 ## 从 Lux 快速开始
 
@@ -96,8 +124,13 @@ end
 ## 文档入口
 
 <div class="mgfx-capability-grid">
-  <a href="./USAGE">
+  <a href="./USAGE#use-with-plain-glua">
     <span>开始</span>
+    <strong>Plain GLua 使用</strong>
+    <small>挂载生成好的 loader 分发，然后在已有 panel 里调用安装后的 MGFX.* facade。</small>
+  </a>
+  <a href="./USAGE#use-from-lux">
+    <span>Lux</span>
     <strong>在 Lux 中使用</strong>
     <small>安装 luxc、导入 @lux/mgfx、按需暴露 MGFX.*，并构建生成后的 GMod addon。</small>
   </a>

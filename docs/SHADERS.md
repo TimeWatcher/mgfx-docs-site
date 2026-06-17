@@ -4,7 +4,7 @@ MGFX ships shader bytecode as a Lux client module, not as a hand-written Lua
 file under an addon tree. The generated shaderpack lives in:
 
 ```text
-packages/lux/mgfx/shaderpack/src/cl_module.lux
+lux-mgfx/lux/mgfx/shaderpack/src/cl_module.lux
 ```
 
 That module exports the active `VERSION`, a base64 GMA payload, and helper
@@ -49,25 +49,29 @@ projects should rely on the package-shipped module.
 The runtime package source is:
 
 ```text
-packages/lux/mgfx/
-  shadersrc/
-    build.py
-    build_shaders.bat
-    compile_shader_list.txt
-    src/
-  shaderpack/src/cl_module.lux
-  materials/src/
-    module.lux
-    cl_base.lux
-    cl_create.lux
-    cl_status.lux
-    cl_texture.lux
-    cl_install.lux
-  roundrect/src/
-  primitives/src/
-  widgets/src/
-  text/src/
-  style/src/
+lux-mgfx/
+  lux/
+    mgfx/
+      shadersrc/
+        build.py
+        build_shaders.bat
+        compile_shader_list.txt
+        src/
+      shaderpack/src/cl_module.lux
+      materials/src/
+        module.lux
+        cl_base.lux
+        cl_create.lux
+        cl_status.lux
+        cl_texture.lux
+        cl_install.lux
+      roundrect/src/
+      primitives/src/
+      widgets/src/
+      text/src/
+      style/src/
+  precompiled/
+  dist/lua/
 ```
 
 `shadersrc/src/` contains the MGFX HLSL source and the committed `.vcs` output
@@ -78,7 +82,7 @@ The Windows shader compiler is carried as repository-level build
 infrastructure, outside the Lux package tree:
 
 ```text
-packages/tools/mgfx/sdk_screenspace_shaders/shadersrc/bin/ShaderCompile.exe
+lux-mgfx/tools/mgfx/sdk_screenspace_shaders/shadersrc/bin/ShaderCompile.exe
 ```
 
 That binary toolchain is not part of the `lux/mgfx` module layout and is not
@@ -89,9 +93,11 @@ so builds must use this bundled tool or an explicit `MGFX_SHADERCOMPILE` path.
 ## Rebuild Contract
 
 When shader bytecode changes, the result must be regenerated into
-`packages/lux/mgfx/shaderpack/src/cl_module.lux`.
+`lux-mgfx/lux/mgfx/shaderpack/src/cl_module.lux`. The plain GLua loader build
+under `dist/lua` consumes the same generated shaderpack through the
+`precompiled/` project.
 
-Common maintenance commands from `packages/lux/mgfx/shadersrc`:
+Common maintenance commands from `lux-mgfx/lux/mgfx/shadersrc`:
 
 ```powershell
 # Repack committed .vcs files into the Lux shaderpack module.

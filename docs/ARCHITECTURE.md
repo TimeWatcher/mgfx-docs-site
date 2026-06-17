@@ -5,31 +5,36 @@ architecture matters only as history: the public rendering model is preserved,
 but loader ownership, module boundaries, internal visibility, and build output
 are now defined by Lux.
 
-Read this page after [Use MGFX from Lux](./USAGE). Public rendering behavior is
-documented in [API Overview](./API) and [Detailed API Reference](./api-reference/).
+Read this page after [Use MGFX](./USAGE). Public rendering behavior is documented
+in [API Overview](./API) and [Detailed API Reference](./api-reference/).
 
 ## Build-Time Shape
 
-MGFX source lives under the Lux package tree:
+MGFX source lives in the standalone `lux-mgfx` package set:
 
 ```text
-packages/lux/mgfx/
-  src/
-  capabilities/src/
-  commands/src/
-  frame/src/
-  geometry/src/
-  materials/src/
-  paint/src/
-  primitives/src/
-  roundrect/src/
-  shaderpack/src/
-  style/src/
-  text/src/
-  widgets/src/
-  console/src/
-  demo/src/
-  wheel_demo/src/
+lux-mgfx/
+  lux.package.toml
+  lux/
+    mgfx/
+      src/
+      capabilities/src/
+      commands/src/
+      frame/src/
+      geometry/src/
+      materials/src/
+      paint/src/
+      primitives/src/
+      roundrect/src/
+      shaderpack/src/
+      style/src/
+      text/src/
+      widgets/src/
+      console/src/
+      demo/src/
+      wheel_demo/src/
+  precompiled/
+  tools/
 ```
 
 Each directory is a Lux module. A module may contain multiple part files. The
@@ -54,9 +59,9 @@ This replaces the old approach of:
 The GMod backend now owns generated loaders and `AddCSLuaFile` batching.
 
 Shader maintenance source is the one exception to the module list:
-`packages/lux/mgfx/shadersrc` contains HLSL, committed `.vcs` output, and the
-shaderpack generator. It is build input, not a Lux module. The binary shader
-compiler lives outside the package tree under `packages/tools/mgfx`.
+`lux/mgfx/shadersrc` contains HLSL, committed `.vcs` output, and the shaderpack
+generator. It is build input, not a Lux module. The binary shader compiler lives
+outside the package tree under `tools/mgfx`.
 
 ## Runtime Shape
 
@@ -92,7 +97,9 @@ export client fn installGlobal(name = "MGFX") {
 ```
 
 New Lux code can import and call module exports directly. GLua-facing code can
-use the installed `MGFX.*` facade when needed.
+use the installed `MGFX.*` facade when needed. Plain GLua users get that facade
+from the generated loader distribution in `dist/lua`, which is built from the
+`precompiled/` project.
 
 ## Public Surface Policy
 

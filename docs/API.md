@@ -7,7 +7,7 @@ layout, input, focus, component lifecycle, animation state, or hit testing.
 For complete function signatures, parameter tables, notes, return values, and
 examples, use the grouped [Detailed API Reference](./api-reference/).
 
-For installation and project setup, start with [Use MGFX from Lux](./USAGE).
+For installation and project setup, start with [Use MGFX](./USAGE).
 
 ## Two API Surfaces
 
