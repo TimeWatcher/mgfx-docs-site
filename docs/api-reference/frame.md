@@ -28,7 +28,7 @@ Facade aliases: `MGFX.StartPanel`, `MGFX.EndPanel`, `MGFX.StartScreen`,
 ## startPanel
 
 ```lux
-mgfx.frame.startPanel(panel, w, h)
+mgfx.api.startPanel(panel, w, h)
 ```
 
 Starts a panel-local MGFX frame and immediately installs panel clipping.
@@ -50,16 +50,16 @@ Starts a panel-local MGFX frame and immediately installs panel clipping.
 
 ```lux
 client fn paint(panel, w, h) {
-  mgfx.frame.startPanel(panel, w, h)
-  mgfx.paint.roundedBox(0, 0, w, h, 8, Color(20, 24, 32, 230))
-  mgfx.frame.endPanel()
+  mgfx.api.startPanel(panel, w, h)
+  mgfx.api.roundedBox(0, 0, w, h, 8, Color(20, 24, 32, 230))
+  mgfx.api.endPanel()
 }
 ```
 
 ## endPanel
 
 ```lux
-mgfx.frame.endPanel()
+mgfx.api.endPanel()
 ```
 
 Ends the current panel frame, replays queued text/clip commands, and clears
@@ -73,15 +73,15 @@ frame state.
 #### Example
 
 ```lux
-mgfx.frame.startPanel(panel, w, h)
-mgfx.text.draw("Ready", "DermaDefault", 12, 12, color_white)
-mgfx.frame.endPanel()
+mgfx.api.startPanel(panel, w, h)
+mgfx.api.text("Ready", "DermaDefault", 12, 12, color_white)
+mgfx.api.endPanel()
 ```
 
 ## startScreen
 
 ```lux
-mgfx.frame.startScreen(w = ScrW(), h = ScrH())
+mgfx.api.startScreen(w = ScrW(), h = ScrH())
 ```
 
 Starts a screen-space MGFX frame, usually for `HUDPaint`.
@@ -101,16 +101,16 @@ Starts a screen-space MGFX frame, usually for `HUDPaint`.
 
 ```lux
 hook.Add("HUDPaint", "MyHud", () => {
-  mgfx.frame.startScreen()
-  mgfx.widgets.ring(ScrW() - 72, 72, 28, 5, Color(80, 210, 170))
-  mgfx.frame.endScreen()
+  mgfx.api.startScreen()
+  mgfx.api.ring(ScrW() - 72, 72, 28, 5, Color(80, 210, 170))
+  mgfx.api.endScreen()
 })
 ```
 
 ## endScreen
 
 ```lux
-mgfx.frame.endScreen()
+mgfx.api.endScreen()
 ```
 
 Ends the current screen frame and flushes queued commands.
@@ -123,7 +123,7 @@ Ends the current screen frame and flushes queued commands.
 ## pushClip
 
 ```lux
-mgfx.frame.pushClip(x, y, w, h)
+mgfx.api.pushClip(x, y, w, h)
 ```
 
 Pushes a rectangular scissor clip relative to the active frame.
@@ -143,7 +143,7 @@ Pushes a rectangular scissor clip relative to the active frame.
 ## popClip
 
 ```lux
-mgfx.frame.popClip()
+mgfx.api.popClip()
 ```
 
 Pops the current rectangular clip and restores the previous scissor rectangle.
@@ -156,7 +156,7 @@ Pops the current rectangular clip and restores the previous scissor rectangle.
 ## debugOverlay
 
 ```lux
-mgfx.frame.debugOverlay(x = 8, y = 8)
+mgfx.api.debugOverlay(x = 8, y = 8)
 ```
 
 Draws a small internal render statistics overlay.

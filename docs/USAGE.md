@@ -8,10 +8,10 @@ consumption paths:
 - **Use from Lux**: import `@lux/mgfx` from Lux source and let `luxc gmod build`
   compile the package into the addon output.
 
-New Lux code should prefer explicit module imports such as `mgfx.paint`,
-`mgfx.style`, `mgfx.frame`, and `mgfx.widgets`. Existing GLua panels can keep
-the familiar PascalCase facade such as `MGFX.StartPanel`,
-`MGFX.RoundedBoxEx`, `MGFX.LinearGradient`, and `MGFX.TextEx`.
+New Lux code should import `@lux/mgfx` once and call the unified
+`mgfx.api.*` surface. Existing GLua panels can keep the familiar PascalCase
+facade such as `MGFX.StartPanel`, `MGFX.RoundedBoxEx`,
+`MGFX.LinearGradient`, and `MGFX.TextEx`.
 
 <span id="use-with-plain-glua"></span>
 
@@ -134,7 +134,7 @@ marked `client`.
 
 ## Draw from Lux
 
-Lux code can use the lower-case module surface directly:
+Lux code should draw through `mgfx.api.*`:
 
 ::: code-group
 
@@ -142,11 +142,11 @@ Lux code can use the lower-case module surface directly:
 import * as mgfx from "@lux/mgfx"
 
 client fn paintPanel(panel, w, h) {
-  mgfx.frame.startPanel(panel, w, h)
+  mgfx.api.startPanel(panel, w, h)
 
-  mgfx.paint.roundedBoxEx(0, 0, w, h, {
+  mgfx.api.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.style.linearGradient(
+    fill = mgfx.api.linearGradient(
       0, 0, 1, 1,
       Color(20, 36, 48, 220),
       Color(38, 112, 138, 220)
@@ -154,7 +154,7 @@ client fn paintPanel(panel, w, h) {
     backdrop = { blur = 7, tint = Color(0, 8, 12, 120) },
   })
 
-  mgfx.frame.endPanel()
+  mgfx.api.endPanel()
 }
 ```
 
@@ -162,10 +162,10 @@ client fn paintPanel(panel, w, h) {
 local mgfx = __lux_import("@lux/mgfx")
 
 local function paintPanel(panel, w, h)
-  mgfx.frame.startPanel(panel, w, h)
-  mgfx.paint.roundedBoxEx(0, 0, w, h, {
+  mgfx.api.startPanel(panel, w, h)
+  mgfx.api.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.style.linearGradient(
+    fill = mgfx.api.linearGradient(
       0, 0, 1, 1,
       Color(20, 36, 48, 220),
       Color(38, 112, 138, 220)
@@ -175,7 +175,7 @@ local function paintPanel(panel, w, h)
       tint = Color(0, 8, 12, 120),
     },
   })
-  mgfx.frame.endPanel()
+  mgfx.api.endPanel()
 end
 ```
 
@@ -225,8 +225,9 @@ hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
 
 :::
 
-The installed owner uses PascalCase method names for GMod ergonomics. The Lux
-modules keep lower-case names such as `mgfx.paint.roundedBoxEx`.
+The installed owner uses PascalCase method names for GMod ergonomics. Lux code
+uses the same operations through lower-case `mgfx.api.*` names such as
+`mgfx.api.roundedBoxEx`.
 
 ## Build the Addon
 

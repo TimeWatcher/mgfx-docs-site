@@ -285,8 +285,8 @@ Multi-stop gradients use a shared 1D LUT:
 - LUTs are cached by stop table in a bounded LRU. Fast animation of stop colors
   or positions churns the cache; prefer animating geometry, opacity, or an
   explicit offset.
-- Fill records returned by `mgfx.style.linearGradient`,
-  `mgfx.style.radialGradient`, and `mgfx.style.conicGradient` are treated as
+- Fill records returned by `mgfx.api.linearGradient`,
+  `mgfx.api.radialGradient`, and `mgfx.api.conicGradient` are treated as
   immutable. Create a new fill record when stops or colors change.
 
 ## Alpha Pitfall

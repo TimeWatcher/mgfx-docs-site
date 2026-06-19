@@ -64,11 +64,11 @@ end
 import * as mgfx from "@lux/mgfx"
 
 client fn paintPanel(panel, w, h) {
-  mgfx.frame.startPanel(panel, w, h)
+  mgfx.api.startPanel(panel, w, h)
 
-  mgfx.paint.roundedBoxEx(0, 0, w, h, {
+  mgfx.api.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.style.linearGradient(0, 0, 1, 1, {
+    fill = mgfx.api.linearGradient(0, 0, 1, 1, {
       {0.00, Color(30, 130, 255, 230)},
       {0.55, Color(60, 200, 255, 230)},
       {1.00, Color(255, 210, 110, 230)},
@@ -76,17 +76,17 @@ client fn paintPanel(panel, w, h) {
     backdrop = { blur = 8, tint = Color(0, 8, 12, 120) },
   })
 
-  mgfx.widgets.progressBarEx(24, 84, w - 48, 10, 0.72, {
+  mgfx.api.progressBarEx(24, 84, w - 48, 10, 0.72, {
     radius = 5,
     track = Color(10, 18, 24, 190),
-    fill = mgfx.style.linearGradient(
+    fill = mgfx.api.linearGradient(
       0, 0, 1, 0,
       Color(30, 130, 255, 230),
       Color(60, 200, 255, 230)
     ),
   })
 
-  mgfx.frame.endPanel()
+  mgfx.api.endPanel()
 }
 ```
 
@@ -94,10 +94,10 @@ client fn paintPanel(panel, w, h) {
 local mgfx = __lux_import("@lux/mgfx")
 
 local function paintPanel(panel, w, h)
-  mgfx.frame.startPanel(panel, w, h)
-  mgfx.paint.roundedBoxEx(0, 0, w, h, {
+  mgfx.api.startPanel(panel, w, h)
+  mgfx.api.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.style.linearGradient(0, 0, 1, 1, {
+    fill = mgfx.api.linearGradient(0, 0, 1, 1, {
       {0.00, Color(30, 130, 255, 230)},
       {0.55, Color(60, 200, 255, 230)},
       {1.00, Color(255, 210, 110, 230)},
@@ -107,16 +107,16 @@ local function paintPanel(panel, w, h)
       tint = Color(0, 8, 12, 120),
     },
   })
-  mgfx.widgets.progressBarEx(24, 84, w - 48, 10, 0.72, {
+  mgfx.api.progressBarEx(24, 84, w - 48, 10, 0.72, {
     radius = 5,
     track = Color(10, 18, 24, 190),
-    fill = mgfx.style.linearGradient(
+    fill = mgfx.api.linearGradient(
       0, 0, 1, 0,
       Color(30, 130, 255, 230),
       Color(60, 200, 255, 230)
     ),
   })
-  mgfx.frame.endPanel()
+  mgfx.api.endPanel()
 end
 ```
 
@@ -167,7 +167,7 @@ end
 MGFX is a Lux package and a renderer, not a UI framework. It does not own
 layout, input, focus, component lifecycle, transition state, or hit testing.
 Callers compute the current visual state each frame and pass explicit draw
-arguments to the Lux module API or to the installed `MGFX.*` facade.
+arguments to `mgfx.api.*` in Lux or to the installed `MGFX.*` facade in GLua.
 
 Text follows the same rule. Plain text should stay on native GMod text paths.
 Only text that needs MGFX shader effects should use the whole-run composer.
@@ -192,19 +192,19 @@ service, sponsored work, or other commercial context.
 ::: code-group
 
 ```lux [Lux]
-local fill = mgfx.style.sectorAngularGradient({
+local fill = mgfx.api.sectorAngularGradient({
   {0.00, Color(35, 212, 232, 170)},
   {0.52, Color(80, 220, 160, 150)},
   {1.00, Color(245, 158, 11, 135)},
 })
 
-mgfx.widgets.sectorEx(cx, cy, innerR, outerR, startDeg, endDeg, {
+mgfx.api.sectorEx(cx, cy, innerR, outerR, startDeg, endDeg, {
   fill = fill,
   stroke = Color(255, 255, 255, 34),
   strokeWidth = 1,
   backdrop = { blur = 7, tint = Color(4, 10, 14, 120) },
   innerGlow = { color = Color(255, 96, 78, 90), width = 28 },
-  transform = mgfx.geometry.pointerTilt(mx, my, {
+  transform = mgfx.api.pointerTilt(mx, my, {
     perspective = 900,
     maxRotateX = 4,
     maxRotateY = 6,

@@ -267,8 +267,8 @@ t = (angle - startDeg) / (endDeg - startDeg)
   LUT 采样。
 - LUT 按 stop table 缓存在有界 LRU 中。快速动画 stop 颜色或位置会 churn cache，优先
   动画几何、opacity 或显式 offset。
-- `mgfx.style.linearGradient`、`mgfx.style.radialGradient`、
-  `mgfx.style.conicGradient` 返回的 fill record 被视为 immutable。要改 stop 或颜色，
+- `mgfx.api.linearGradient`、`mgfx.api.radialGradient`、
+  `mgfx.api.conicGradient` 返回的 fill record 被视为 immutable。要改 stop 或颜色，
   应创建新的 fill record，不要原地改表。
 
 ## Alpha 踩坑

@@ -7,12 +7,28 @@ This is the function-level reference for the MGFX public API. Start with
 MGFX has two public surfaces:
 
 ```text
-Lux module API      mgfx.paint.roundedBoxEx(...)
-Installed facade    MGFX.RoundedBoxEx(...)
+Lux                 mgfx.api.roundedBoxEx(...)
+Plain GLua facade   MGFX.RoundedBoxEx(...)
 ```
 
-The detailed pages document Lux module names first. The installed facade uses
-the same operation names in PascalCase.
+The detailed pages are grouped by topic for reading, not by import path. Lux
+examples use `mgfx.api.*`; the installed facade uses the same operation names
+in PascalCase.
+
+## Choose by Task
+
+| Need | Read first | Main entry points |
+| --- | --- | --- |
+| Panels, buttons, badges, arrows, convex polygons | [Primitives](./primitives) | `roundedBoxEx`, `chamferBoxEx`, `regularPolyEx`, `diamondEx`, `caretEx`, `polyEx` |
+| Avatars, icons, cropping, rounded/chamfer/texture masks | [Images and Masks](./images) | `imageEx`, `iconEx`, `mask` |
+| Health bars, ammo pips, rings, gauges, wheel sectors | [Widgets](./widgets) | `progressBarEx`, `segmentBarEx`, `ringEx`, `arcEx`, `sectorEx` |
+| Plain labels, outlined text, glow titles, text boxes | [Text API](./text-api) | `text`, `textEx`, `textBoxEx`, `measureTextBox` |
+| Gradients, stops, patterns, draw transforms | [Paint, Patterns, Transforms, and Capabilities](./paint) | `linearGradient`, `radialGradient`, `sectorAngularGradient`, `stripePattern`, `pointerTilt` |
+| VGUI Paint / HUDPaint lifecycle | [Frame Scope and Debugging](./frame) | `startPanel`, `startScreen`, `pushClip`, `debugOverlay` |
+
+For ordinary controls, use the short signature or the matching `Ex` style
+table. Avoid adding a second helper layer unless it removes real project-level
+duplication.
 
 ## Groups
 
@@ -51,7 +67,7 @@ the same operation names in PascalCase.
 
 ## Reading Order
 
-- New Lux code should import `@lux/mgfx` and call lower-case module exports.
+- New Lux code should import `@lux/mgfx` and call `mgfx.api.*`.
 - Existing GLua code may call the installed `MGFX.*` facade after
   `mgfx.installGlobal("MGFX")`.
 - When changing public behavior, update the overview and the relevant detailed

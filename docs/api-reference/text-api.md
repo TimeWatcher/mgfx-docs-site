@@ -18,24 +18,24 @@ Facade aliases: `MGFX.RegisterTextFont`, `MGFX.DefineTextStyle`,
 
 ## This Page
 
-- [registerFont](#registerfont) - Register an MGFX text font alias.
-- [defineStyle](#definestyle) - Store a reusable text style record.
-- [getStyle](#getstyle) - Retrieve a previously defined style.
-- [resolveStyle](#resolvestyle) - Normalize a style table for reuse.
-- [measure](#measure) - Measure one text run.
-- [measureBox](#measurebox) - Measure wrapped or ellipsized fixed-width text.
-- [prewarm](#prewarm) - Bake stable composed text before first draw.
-- [draw](#draw) - Simple text helper.
-- [drawEx](#drawex) - Advanced text with composed effects.
-- [box](#box) - Simple text box helper.
-- [boxEx](#boxex) - Advanced text box with wrapping, alignment, and effects.
+- [registerTextFont](#registertextfont) - Register an MGFX text font alias.
+- [defineTextStyle](#definetextstyle) - Store a reusable text style record.
+- [getTextStyle](#gettextstyle) - Retrieve a previously defined style.
+- [resolveTextStyle](#resolvetextstyle) - Normalize a style table for reuse.
+- [measureText](#measuretext) - Measure one text run.
+- [measureTextBox](#measuretextbox) - Measure wrapped or ellipsized fixed-width text.
+- [prewarmText](#prewarmtext) - Bake stable composed text before first draw.
+- [text](#text) - Simple text helper.
+- [textEx](#textex) - Advanced text with composed effects.
+- [textBox](#textbox) - Simple text box helper.
+- [textBoxEx](#textboxex) - Advanced text box with wrapping, alignment, and effects.
 
 ## Function Reference
 
-## registerFont
+## registerTextFont
 
 ```lux
-mgfx.text.registerFont(name, spec)
+mgfx.api.registerTextFont(name, spec)
 ```
 
 Registers an MGFX text font alias.
@@ -54,7 +54,7 @@ Registers an MGFX text font alias.
 Returns `true`/`false` depending on registration success.
 
 ```lux
-mgfx.text.registerFont("ScoreTitle", {
+mgfx.api.registerTextFont("ScoreTitle", {
   face = "Noto Sans SC",
   size = 28,
   weight = 700,
@@ -62,10 +62,10 @@ mgfx.text.registerFont("ScoreTitle", {
 })
 ```
 
-## defineStyle
+## defineTextStyle
 
 ```lux
-mgfx.text.defineStyle(name, style)
+mgfx.api.defineTextStyle(name, style)
 ```
 
 Stores a reusable text style record.
@@ -84,74 +84,74 @@ Stores a reusable text style record.
 | `italic` | Request italic font variant where possible. |
 
 ```lux
-mgfx.text.defineStyle("ScoreGlow", {
-  fill = mgfx.style.linearGradient(0, 0, 1, 0, Color(255, 255, 255), Color(130, 210, 255)),
+mgfx.api.defineTextStyle("ScoreGlow", {
+  fill = mgfx.api.linearGradient(0, 0, 1, 0, Color(255, 255, 255), Color(130, 210, 255)),
   glow = { size = 5, color = Color(80, 170, 255, 110) },
 })
 ```
 
-## getStyle
+## getTextStyle
 
 ```lux
-mgfx.text.getStyle(name)
+mgfx.api.getTextStyle(name)
 ```
 
 Returns a previously defined text style table, or `nil`.
 
-## resolveStyle
+## resolveTextStyle
 
 ```lux
-mgfx.text.resolveStyle(style)
+mgfx.api.resolveTextStyle(style)
 ```
 
 Normalizes a text style table for reuse. This is useful when constructing a
 style once and passing it to many draw calls.
 
-## measure
+## measureText
 
 ```lux
-mgfx.text.measure(value, font = "DermaDefault")
+mgfx.api.measureText(value, font = "DermaDefault")
 ```
 
-Measures one text run and returns `width, height`. Use `measureBox` for wrapping
-or ellipsis.
+Measures one text run and returns `width, height`. Use `measureTextBox` for
+wrapping or ellipsis.
 
-## measureBox
+## measureTextBox
 
 ```lux
-mgfx.text.measureBox(value, font, w, textStyle = nil)
+mgfx.api.measureTextBox(value, font, w, textStyle = nil)
 ```
 
 Measures text inside a fixed-width box. It accounts for wrapping, ellipsis,
 line height, and style fields relevant to layout.
 
-## prewarm
+## prewarmText
 
 ```lux
-mgfx.text.prewarm(value, font, textStyle = nil)
+mgfx.api.prewarmText(value, font, textStyle = nil)
 ```
 
 Prewarms stable text that will use the composer. Plain native text returns
 `false` because it does not live in the atlas.
 
 ```lux
-mgfx.text.prewarm("ROUND START", "HUDTitleFX", {
+mgfx.api.prewarmText("ROUND START", "HUDTitleFX", {
   glow = { size = 6, color = Color(80, 190, 255, 90) },
 })
 ```
 
-## draw
+## text
 
 ```lux
-mgfx.text.draw(value, font, x, y, color, ax = 0, ay = 0)
+mgfx.api.text(value, font, x, y, color, ax = 0, ay = 0)
 ```
 
 Simple text helper. Without shader work it routes to native GMod text.
 
-## drawEx
+## textEx
 
 ```lux
-mgfx.text.drawEx(value, font, x, y, color, ax = 0, ay = 0, textStyle = nil)
+mgfx.api.textEx(value, font, x, y, color, ax = 0, ay = 0, textStyle = nil)
 ```
 
 Advanced text draw. If the style requests shader work, the record uses the
@@ -159,26 +159,26 @@ whole-run composer when available and falls back to native approximations when
 needed.
 
 ```lux
-mgfx.text.drawEx("TEXT FX", "HUDTitleFX", x, y, Color(235, 246, 255),
+mgfx.api.textEx("TEXT FX", "HUDTitleFX", x, y, Color(235, 246, 255),
   TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, {
-    fill = mgfx.style.linearGradient(0, 0, 1, 0, Color(130, 220, 255), Color(255, 170, 110)),
+    fill = mgfx.api.linearGradient(0, 0, 1, 0, Color(130, 220, 255), Color(255, 170, 110)),
     stroke = { width = 0.55, softness = 0.60, color = Color(0, 0, 0, 130) },
     glow = { size = 5, softness = 0.65, color = Color(80, 190, 255, 70) },
   })
 ```
 
-## box
+## textBox
 
 ```lux
-mgfx.text.box(value, font, x, y, w, h, color, alignX = TEXT_ALIGN_LEFT, alignY = TEXT_ALIGN_TOP)
+mgfx.api.textBox(value, font, x, y, w, h, color, alignX = TEXT_ALIGN_LEFT, alignY = TEXT_ALIGN_TOP)
 ```
 
 Simple text box helper for fixed-width labels.
 
-## boxEx
+## textBoxEx
 
 ```lux
-mgfx.text.boxEx(value, font, x, y, w, h, textStyle = nil)
+mgfx.api.textBoxEx(value, font, x, y, w, h, textStyle = nil)
 ```
 
 Advanced text box with wrapping, ellipsis, alignment, and composed effects.

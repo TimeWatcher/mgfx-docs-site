@@ -66,21 +66,13 @@ outside the package tree under `tools/mgfx`.
 ## Runtime Shape
 
 `@lux/mgfx` is client-only. The root module imports the feature modules and
-installs them into an owner table:
+exposes a unified `api` table. The installed facade is built from that API:
 
 ```lux
-import * as frame from "@lux/mgfx/frame"
-import * as paint from "@lux/mgfx/paint"
-import * as style from "@lux/mgfx/style"
-import * as widgets from "@lux/mgfx/widgets"
+import * as api_mod from "@lux/mgfx/api"
 
 export client fn install(owner = nil) {
-  local api = owner ?? {}
-  style.install(api)
-  frame.install(api)
-  paint.install(api)
-  widgets.install(api)
-  api
+  return api_mod.install(owner)
 }
 ```
 
@@ -96,10 +88,10 @@ export client fn installGlobal(name = "MGFX") {
 }
 ```
 
-New Lux code can import and call module exports directly. GLua-facing code can
-use the installed `MGFX.*` facade when needed. Plain GLua users get that facade
-from the generated loader distribution in `dist/lua`, which is built from the
-`precompiled/` project.
+New Lux code should call `mgfx.api.*`. GLua-facing code can use the installed
+`MGFX.*` facade when needed. Plain GLua users get that facade from the generated
+loader distribution in `dist/lua`, which is built from the `precompiled/`
+project.
 
 ## Public Surface Policy
 
@@ -107,20 +99,23 @@ MGFX intentionally has two public naming surfaces:
 
 | Surface | Used by | Naming |
 | --- | --- | --- |
-| Lux module API | Lux source | `mgfx.paint.roundedBoxEx`, `mgfx.style.linearGradient` |
+| Unified Lux API | Lux source | `mgfx.api.roundedBoxEx`, `mgfx.api.linearGradient` |
 | Installed facade | old GLua panels, third-party code, demos | `MGFX.RoundedBoxEx`, `MGFX.LinearGradient` |
 
-The lower-case module API is the primary implementation surface. The PascalCase
-facade is installed by module `install(owner)` functions. It exists for GMod
-ergonomics and migration, not because MGFX relies on global state internally.
+`mgfx.api.*` is the primary Lux-facing surface. The PascalCase facade is
+installed from the same API for GMod ergonomics and migration, not because MGFX
+relies on global state internally.
 
 ## Module Boundaries
 
-`@lux/mgfx/src` is the composition root. It wires feature modules together,
-installs the public facade, and exports submodules for direct Lux imports. It
-should remain orchestration code.
+`@lux/mgfx/src` is the composition root. It wires the unified API, installs the
+public facade, and may still export internal submodules for advanced package
+maintenance. Normal UI code should not choose calls by submodule.
 
-`@lux/mgfx/style` owns public style normalization:
+The module names below are internal maintenance boundaries, not recommended
+user entry points.
+
+`@lux/mgfx/style` owns style normalization:
 
 - colors and alpha helpers
 - solid and gradient fill records
@@ -158,8 +153,9 @@ filename noise.
 `@lux/mgfx/text` owns text style resolution, measurement, native text routing,
 whole-run composed text, atlas management, text profiling, and installation.
 
-`@lux/mgfx/paint` is the high-level drawing layer that re-exports the common
-draw calls over roundrect, primitives, widgets, images, and styles.
+`@lux/mgfx/paint` is an internal drawing layer over roundrect, primitives,
+widgets, images, and styles. Public Lux code should use `mgfx.api.*` instead of
+importing this module directly.
 
 `@lux/mgfx/console`, `@lux/mgfx/demo`, and `@lux/mgfx/wheel_demo` are optional
 developer tools. They are package modules, not external addon dependencies.

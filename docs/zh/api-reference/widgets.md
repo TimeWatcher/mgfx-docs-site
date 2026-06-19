@@ -21,6 +21,102 @@ ProgressBar、SegmentBar、Ring、Arc、Sector 这些 renderer-level widget。
 - [Sector](#sector) - 简单直边径向扇区。
 - [SectorEx](#sectorex) - 支持圆环式绘制和特效的高级直边扇区。
 
+## 常用组件配方
+
+#### HUD 血条 / 装填条
+
+```lua
+MGFX.ProgressBarEx(x, y, w, 14, health / maxHealth, {
+    radius = 7,
+    padding = 2,
+    track = Color(255, 255, 255, 24),
+    fill = MGFX.LinearGradient(0, 0, 1, 0, Color(255, 92, 72), Color(255, 190, 66)),
+    stroke = Color(255, 255, 255, 28),
+    strokeWidth = 1,
+    fx = {sheen = true, marker = true},
+})
+```
+
+常用高度 `8..18`。`radius = h * 0.5` 是胶囊条；`padding = 1..3` 能让填充和轨道分开，但高度低于 8 时应少用 padding。
+
+#### 弹药 / 离散充能
+
+```lua
+MGFX.SegmentBarEx(x, y, 180, 12, ammo / maxAmmo, {
+    segments = 12,
+    gap = 3,
+    radius = 2,
+    track = Color(255, 255, 255, 20),
+    fill = MGFX.LinearGradient(0, 0, 1, 0, Color(255, 210, 110), Color(255, 120, 72)),
+    background = Color(0, 0, 0, 70),
+    backgroundRadius = 5,
+})
+```
+
+`segments = 6..24` 适合 HUD。上限是 128，但如果 `(w - gap * (segments - 1)) / segments <= 2`，视觉上会糊成一条线，应减少段数或 gap。
+
+#### 圆形冷却 / 仪表
+
+```lua
+MGFX.RingEx(cx, cy, 34, 8, {
+    fill = MGFX.RingAngularGradient({
+        {0, Color(80, 170, 255)},
+        {1, Color(90, 220, 180)},
+    }, -90),
+    stroke = Color(255, 255, 255, 42),
+    strokeWidth = 1,
+    outerGlow = {width = 10, color = Color(80, 190, 255, 52), softness = 0.62},
+})
+```
+
+小 HUD 圆环推荐 `radius = 18..42`、`width = 4..12`。大仪表可以用 `width = 12..24`。`width` 是几何参数，不写在 `style.width`。
+
+#### 弧形进度
+
+```lua
+local startDeg = -135
+local endDeg = startDeg + 270 * math.Clamp(value, 0, 1)
+
+MGFX.ArcEx(cx, cy, 42, 9, startDeg, endDeg, {
+    fill = MGFX.ArcAngularGradient(Color(80, 170, 255), Color(90, 220, 180), startDeg),
+    stroke = Color(255, 255, 255, 38),
+    strokeWidth = 1,
+})
+```
+
+`ArcEx` 适合 gauge、读条和圆形刻度，端点是圆头。角度使用度数，0 度在右侧，正方向按 GMod/surface 坐标系旋转。
+
+#### 轮盘扇区
+
+```lua
+local gapDeg = 2
+MGFX.SectorEx(cx, cy, 34, 92, startDeg + gapDeg, endDeg - gapDeg, {
+    fill = MGFX.SectorAngularGradient({
+        {0, Color(36, 44, 54, 210)},
+        {1, Color(80, 170, 255, 170)},
+    }, startDeg),
+    stroke = Color(255, 255, 255, 36),
+    strokeWidth = 1,
+    shadow = {x = 0, y = 4, blur = 10, color = Color(0, 0, 0, 110), softness = 0.70},
+})
+```
+
+`SectorEx` 是直边径向扇区，不是加粗圆弧。轮盘菜单常用 `gapDeg = 1..4` 给 wedge 留缝；`innerRadius = 0` 是实心扇形，`innerRadius > 0` 是环形 wedge。
+
+## 参数速查
+
+| 组件 | 推荐值 | 说明 |
+| --- | --- | --- |
+| `ProgressBarEx.value` | `0..1` | 会 clamp；调用方仍建议先用真实比例表达。 |
+| `ProgressBarEx.h` | `8..18` | 小 HUD 可 8..12，主状态条可 14..18。 |
+| `ProgressBarEx.padding` | `1..3` | 高度低于 8 时用 0 或 1。 |
+| `ProgressBarEx.fx.ticks` | `0..31` | 实现会限制到 31；常用 4、6、8、10。 |
+| `SegmentBarEx.segments` | `6..24` 常用，硬上限 128 | 分段越多越需要更宽的条和更小的 gap。 |
+| `SegmentBarEx.gap` | `2..4` | 小条用 2，大条用 3..4。 |
+| `RingEx.width` / `ArcEx.width` | 小 HUD `4..12`，大仪表 `12..24` | 几何厚度参数，不是 style 字段。 |
+| `SectorEx.innerRadius` | `0` 或 `outerRadius * 0.35..0.65` | 0 做饼图/实心 wedge；非 0 做轮盘。 |
+| `startDeg/endDeg` | 任意度数 | 先用角度表达设计，再给相邻 sector 留 `1..4` 度 gap。 |
+
 ## 函数参考
 
 ## ProgressBar
@@ -248,7 +344,7 @@ MGFX.RingEx(cx, cy, radius, width, style)
 | width | 圆环带宽；传 nil 时默认约为半径的 18%。 |
 | style.fill | 受支持时可为 Color、线性/径向/锥形绘制。 |
 | style.stroke / strokeWidth | 可选圆环描边。 |
-| style.pattern, innerGlow, outerGlow | 可选圆环特效。 |
+| style.shadow, pattern, innerGlow, outerGlow | 可选圆环特效。 |
 
 #### 用法说明
 
@@ -261,6 +357,7 @@ MGFX.RingEx(cx, cy, radius, width, style)
 | --- | --- | --- |
 | `fill / color`<br>Color 或 MGFX 绘制记录。 | `white 180` | 圆环/弧线主体绘制。 |
 | `stroke / strokeWidth`<br>Color 加宽度。 | `nil / 0` | 内外边缘描边。 |
+| `shadow`<br>投影 spec 表。 | `nil` | 按圆环/弧线形状绘制外部软阴影。 |
 | `pattern`<br>StripePattern 或 SmokePattern。 | `nil` | 裁剪到环形或弧线内的图案。 |
 | `innerGlow / outerGlow`<br>发光 spec 表。 | `nil` | 圆环/弧线边缘发光。 |
 | `backdrop`<br>true、数字、Color 或表。 | `nil` | 按圆环/弧线裁剪的 framebuffer 模糊/染色。 |
@@ -326,7 +423,7 @@ MGFX.ArcEx(cx, cy, radius, width, startDeg, endDeg, style)
 | width | 圆弧带宽；传 nil 时默认约为半径的 18%。 |
 | style.fill | 圆弧填充绘制。 |
 | style.stroke / strokeWidth | 可选描边。 |
-| style.pattern, innerGlow, outerGlow | 可选特效。 |
+| style.shadow, pattern, innerGlow, outerGlow | 可选特效。 |
 
 #### 用法说明
 
@@ -339,6 +436,7 @@ MGFX.ArcEx(cx, cy, radius, width, startDeg, endDeg, style)
 | --- | --- | --- |
 | `fill / color`<br>Color 或 MGFX 绘制记录。 | `white 180` | 圆环/弧线主体绘制。 |
 | `stroke / strokeWidth`<br>Color 加宽度。 | `nil / 0` | 内外边缘描边。 |
+| `shadow`<br>投影 spec 表。 | `nil` | 按圆环/弧线形状绘制外部软阴影。 |
 | `pattern`<br>StripePattern 或 SmokePattern。 | `nil` | 裁剪到环形或弧线内的图案。 |
 | `innerGlow / outerGlow`<br>发光 spec 表。 | `nil` | 圆环/弧线边缘发光。 |
 | `backdrop`<br>true、数字、Color 或表。 | `nil` | 按圆环/弧线裁剪的 framebuffer 模糊/染色。 |
@@ -406,7 +504,7 @@ MGFX.SectorEx(cx, cy, innerRadius, outerRadius, startDeg, endDeg, style)
 | outerRadius | 外半径。 |
 | style.fill | 扇区填充，可使用 SectorRadialGradient 和 SectorAngularGradient。 |
 | style.stroke / strokeWidth | 可选描边，覆盖外弧、内弧和两条径向边。 |
-| style.pattern, innerGlow, outerGlow | 可选圆环 shader 特效。 |
+| style.shadow, pattern, innerGlow, outerGlow | 可选圆环 shader 特效。 |
 
 #### 用法说明
 
@@ -419,6 +517,7 @@ MGFX.SectorEx(cx, cy, innerRadius, outerRadius, startDeg, endDeg, style)
 | --- | --- | --- |
 | `fill / color`<br>Color 或 MGFX 绘制记录。 | `white 180` | 扇区主体绘制，可使用 SectorRadialGradient 和 SectorAngularGradient。 |
 | `stroke / strokeWidth`<br>Color 加宽度。 | `nil / 0` | 外弧、内弧和径向边描边。 |
+| `shadow`<br>投影 spec 表。 | `nil` | 按扇区形状绘制外部软阴影。 |
 | `pattern`<br>StripePattern 或 SmokePattern。 | `nil` | 裁剪到扇区形状内的图案。 |
 | `innerGlow / outerGlow`<br>发光 spec 表。 | `nil` | 扇区边缘发光。 |
 | `backdrop`<br>true、数字、Color 或表。 | `nil` | 按扇区裁剪的 framebuffer 模糊/染色。 |

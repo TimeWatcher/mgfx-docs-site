@@ -7,10 +7,9 @@ MGFX 以 Lux package `@lux/mgfx` 的形式维护，但有两种消费路径：
 - **在 Lux 中使用**：在 Lux 源码里导入 `@lux/mgfx`，由 `luxc gmod build` 把 package
   编译进 addon 输出。
 
-新的 Lux 代码应优先使用明确的模块导入，例如 `mgfx.paint`、`mgfx.style`、
-`mgfx.frame` 和 `mgfx.widgets`。现有 GLua panel 可以继续使用熟悉的 PascalCase
-facade，例如 `MGFX.StartPanel`、`MGFX.RoundedBoxEx`、`MGFX.LinearGradient` 和
-`MGFX.TextEx`。
+新的 Lux 代码应导入一次 `@lux/mgfx`，然后统一通过 `mgfx.api.*` 调用。现有 GLua
+panel 可以继续使用熟悉的 PascalCase facade，例如 `MGFX.StartPanel`、
+`MGFX.RoundedBoxEx`、`MGFX.LinearGradient` 和 `MGFX.TextEx`。
 
 <span id="use-with-plain-glua"></span>
 
@@ -129,7 +128,7 @@ end
 
 ## 在 Lux 中绘制
 
-Lux 代码可以直接使用 lower-case 模块表面：
+Lux 代码应通过 `mgfx.api.*` 绘制：
 
 ::: code-group
 
@@ -137,11 +136,11 @@ Lux 代码可以直接使用 lower-case 模块表面：
 import * as mgfx from "@lux/mgfx"
 
 client fn paintPanel(panel, w, h) {
-  mgfx.frame.startPanel(panel, w, h)
+  mgfx.api.startPanel(panel, w, h)
 
-  mgfx.paint.roundedBoxEx(0, 0, w, h, {
+  mgfx.api.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.style.linearGradient(
+    fill = mgfx.api.linearGradient(
       0, 0, 1, 1,
       Color(20, 36, 48, 220),
       Color(38, 112, 138, 220)
@@ -149,7 +148,7 @@ client fn paintPanel(panel, w, h) {
     backdrop = { blur = 7, tint = Color(0, 8, 12, 120) },
   })
 
-  mgfx.frame.endPanel()
+  mgfx.api.endPanel()
 }
 ```
 
@@ -157,10 +156,10 @@ client fn paintPanel(panel, w, h) {
 local mgfx = __lux_import("@lux/mgfx")
 
 local function paintPanel(panel, w, h)
-  mgfx.frame.startPanel(panel, w, h)
-  mgfx.paint.roundedBoxEx(0, 0, w, h, {
+  mgfx.api.startPanel(panel, w, h)
+  mgfx.api.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.style.linearGradient(
+    fill = mgfx.api.linearGradient(
       0, 0, 1, 1,
       Color(20, 36, 48, 220),
       Color(38, 112, 138, 220)
@@ -170,7 +169,7 @@ local function paintPanel(panel, w, h)
       tint = Color(0, 8, 12, 120),
     },
   })
-  mgfx.frame.endPanel()
+  mgfx.api.endPanel()
 end
 ```
 
@@ -220,8 +219,8 @@ hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
 :::
 
 安装后的 owner 使用贴近 GMod 习惯的 PascalCase 方法名，例如 `StartPanel`、
-`RoundedBoxEx`、`LinearGradient`、`TextEx`、`Status`。Lux module 则保留
-`mgfx.paint.roundedBoxEx` 这样的 lower-case 名称。
+`RoundedBoxEx`、`LinearGradient`、`TextEx`、`Status`。Lux 代码使用同一组操作的
+lower-case `mgfx.api.*` 名称，例如 `mgfx.api.roundedBoxEx`。
 
 ## 构建 addon
 

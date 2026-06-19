@@ -12,7 +12,7 @@ Facade aliases: `MGFX.Image`, `MGFX.ImageEx`, `MGFX.Icon`, `MGFX.IconEx`,
 - Use `imageEx` when you need layout, masks, fill/background, stroke, glow, or
   backdrop.
 - Circular avatars, chamfered avatars, and texture masks are expressed through
-  `style.mask = mgfx.style.mask(...)`.
+  `style.mask = mgfx.api.mask(...)`.
 
 ## This Page
 
@@ -27,7 +27,7 @@ Facade aliases: `MGFX.Image`, `MGFX.ImageEx`, `MGFX.Icon`, `MGFX.IconEx`,
 ## image
 
 ```lux
-mgfx.paint.image(x, y, w, h, source, radius = nil, tint = nil)
+mgfx.api.image(x, y, w, h, source, radius = nil, tint = nil)
 ```
 
 Simple image helper.
@@ -44,7 +44,7 @@ backdrop.
 ## imageEx
 
 ```lux
-mgfx.paint.imageEx(x, y, w, h, source, style)
+mgfx.api.imageEx(x, y, w, h, source, style)
 ```
 
 Advanced image path.
@@ -75,9 +75,9 @@ Advanced image path.
 #### Example
 
 ```lux
-mgfx.paint.imageEx(x, y, 72, 72, avatarMat, {
+mgfx.api.imageEx(x, y, 72, 72, avatarMat, {
   fit = "cover",
-  mask = mgfx.style.mask("circle"),
+  mask = mgfx.api.mask("circle"),
   outerGlow = { color = Color(80, 170, 255, 70), width = 14 },
 })
 ```
@@ -85,7 +85,7 @@ mgfx.paint.imageEx(x, y, 72, 72, avatarMat, {
 ## icon
 
 ```lux
-mgfx.paint.icon(x, y, w, h, source, tint = nil)
+mgfx.api.icon(x, y, w, h, source, tint = nil)
 ```
 
 Simple icon helper. It is intended for small glyph-like images and defaults to
@@ -94,7 +94,7 @@ aspect-preserving layout through the icon path.
 ## iconEx
 
 ```lux
-mgfx.paint.iconEx(x, y, w, h, source, style)
+mgfx.api.iconEx(x, y, w, h, source, style)
 ```
 
 Advanced icon path. It uses image-style fields but defaults to icon-friendly
@@ -103,7 +103,7 @@ layout.
 ## mask
 
 ```lux
-mgfx.style.mask(kind, spec = nil)
+mgfx.api.mask(kind, spec = nil)
 ```
 
 Creates an explicit mask record for `imageEx` and `iconEx`.
@@ -132,13 +132,13 @@ Creates an explicit mask record for `imageEx` and `iconEx`.
 #### Example
 
 ```lux
-local textureMask = mgfx.style.mask("texture", {
+local textureMask = mgfx.api.mask("texture", {
   source = maskMaterial,
   channel = "a",
   invert = false,
 })
 
-mgfx.paint.imageEx(x, y, w, h, source, {
+mgfx.api.imageEx(x, y, w, h, source, {
   mask = textureMask,
   fit = "cover",
 })

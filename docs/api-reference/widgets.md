@@ -34,7 +34,7 @@ Facade aliases: `MGFX.ProgressBar`, `MGFX.ProgressBarEx`, `MGFX.SegmentBar`,
 ## progressBar
 
 ```lux
-mgfx.widgets.progressBar(x, y, w, h, value, radius, track, fill, stroke = nil, strokeWidth = nil)
+mgfx.api.progressBar(x, y, w, h, value, radius, track, fill, stroke = nil, strokeWidth = nil)
 ```
 
 Draws a simple horizontal progress bar. `value` is clamped to `0..1`.
@@ -42,7 +42,7 @@ Draws a simple horizontal progress bar. `value` is clamped to `0..1`.
 ## progressBarEx
 
 ```lux
-mgfx.widgets.progressBarEx(x, y, w, h, value, style)
+mgfx.api.progressBarEx(x, y, w, h, value, style)
 ```
 
 Advanced progress bar.
@@ -61,7 +61,7 @@ Advanced progress bar.
 ## segmentBar
 
 ```lux
-mgfx.widgets.segmentBar(x, y, w, h, value, segments, fill, track)
+mgfx.api.segmentBar(x, y, w, h, value, segments, fill, track)
 ```
 
 Draws a segmented value bar for ammo, charges, perk points, or compact discrete
@@ -70,7 +70,7 @@ meters.
 ## segmentBarEx
 
 ```lux
-mgfx.widgets.segmentBarEx(x, y, w, h, value, style)
+mgfx.api.segmentBarEx(x, y, w, h, value, style)
 ```
 
 Advanced segmented bar.
@@ -89,7 +89,7 @@ Advanced segmented bar.
 ## ring
 
 ```lux
-mgfx.widgets.ring(cx, cy, radius, width, fill)
+mgfx.api.ring(cx, cy, radius, width, fill)
 ```
 
 Draws a simple full ring. `radius` is the outer radius and `width` is the band
@@ -98,14 +98,14 @@ thickness.
 ## ringEx
 
 ```lux
-mgfx.widgets.ringEx(cx, cy, radius, width, style)
+mgfx.api.ringEx(cx, cy, radius, width, style)
 ```
 
 Advanced ring with fill, stroke, pattern, glow, backdrop, and transform.
 
 ```lux
-mgfx.widgets.ringEx(cx, cy, 38, 7, {
-  fill = mgfx.style.conicGradient(0.5, 0.5, 20, Color(80, 170, 255), Color(255, 210, 110)),
+mgfx.api.ringEx(cx, cy, 38, 7, {
+  fill = mgfx.api.conicGradient(0.5, 0.5, 20, Color(80, 170, 255), Color(255, 210, 110)),
   outerGlow = { color = Color(80, 170, 255, 55), width = 12 },
 })
 ```
@@ -113,7 +113,7 @@ mgfx.widgets.ringEx(cx, cy, 38, 7, {
 ## arc
 
 ```lux
-mgfx.widgets.arc(cx, cy, radius, startDeg, endDeg, width, fill)
+mgfx.api.arc(cx, cy, radius, startDeg, endDeg, width, fill)
 ```
 
 Draws a simple round-capped arc segment.
@@ -121,7 +121,7 @@ Draws a simple round-capped arc segment.
 ## arcEx
 
 ```lux
-mgfx.widgets.arcEx(cx, cy, radius, width, startDeg, endDeg, style)
+mgfx.api.arcEx(cx, cy, radius, width, startDeg, endDeg, style)
 ```
 
 Advanced arc. Angles are in degrees. Use for gauges, progress arcs, circular
@@ -130,7 +130,7 @@ ticks, and partial cooldown meters.
 ## sector
 
 ```lux
-mgfx.widgets.sector(cx, cy, innerRadius, outerRadius, startDeg, endDeg, fill)
+mgfx.api.sector(cx, cy, innerRadius, outerRadius, startDeg, endDeg, fill)
 ```
 
 Draws a straight-edged radial sector. `innerRadius = 0` makes a solid sector.
@@ -138,15 +138,15 @@ Draws a straight-edged radial sector. `innerRadius = 0` makes a solid sector.
 ## sectorEx
 
 ```lux
-mgfx.widgets.sectorEx(cx, cy, innerRadius, outerRadius, startDeg, endDeg, style)
+mgfx.api.sectorEx(cx, cy, innerRadius, outerRadius, startDeg, endDeg, style)
 ```
 
 Advanced sector. Use `sectorRadialGradient` and `sectorAngularGradient` for
 sector-local gradients.
 
 ```lux
-mgfx.widgets.sectorEx(cx, cy, 36, 92, -45, 45, {
-  fill = mgfx.style.sectorAngularGradient(Color(80, 170, 255, 170), Color(255, 210, 110, 145)),
+mgfx.api.sectorEx(cx, cy, 36, 92, -45, 45, {
+  fill = mgfx.api.sectorAngularGradient(Color(80, 170, 255, 170), Color(255, 210, 110, 145)),
   stroke = Color(255, 255, 255, 36),
   strokeWidth = 1,
 })

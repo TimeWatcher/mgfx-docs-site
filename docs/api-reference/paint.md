@@ -51,7 +51,7 @@ Facade aliases include `MGFX.Solid`, `MGFX.LinearGradient`,
 ## solid
 
 ```lux
-mgfx.style.solid(color)
+mgfx.api.solid(color)
 ```
 
 Creates a solid paint record. Most APIs also accept `Color` directly; `solid`
@@ -60,8 +60,8 @@ is useful when you want an explicit paint record.
 ## linearGradient
 
 ```lux
-mgfx.style.linearGradient(x1, y1, x2, y2, colorA, colorB)
-mgfx.style.linearGradient(x1, y1, x2, y2, stops)
+mgfx.api.linearGradient(x1, y1, x2, y2, colorA, colorB)
+mgfx.api.linearGradient(x1, y1, x2, y2, stops)
 ```
 
 Creates a linear gradient in primitive-local normalized space. Passing a stop
@@ -70,7 +70,7 @@ table is equivalent to `linearGradientStops`.
 ## linearGradientStops
 
 ```lux
-mgfx.style.linearGradientStops(x1, y1, x2, y2, stops)
+mgfx.api.linearGradientStops(x1, y1, x2, y2, stops)
 ```
 
 Creates a multi-stop linear gradient. Stops are sorted and completed at `0` and
@@ -90,8 +90,8 @@ local stops = {
 ## radialGradient
 
 ```lux
-mgfx.style.radialGradient(cx, cy, radius, colorA, colorB)
-mgfx.style.radialGradient(cx, cy, radius, stops)
+mgfx.api.radialGradient(cx, cy, radius, colorA, colorB)
+mgfx.api.radialGradient(cx, cy, radius, stops)
 ```
 
 Creates a radial gradient record. The shader path samples the shared gradient
@@ -100,7 +100,7 @@ LUT after computing radial `t`.
 ## ringRadialGradient
 
 ```lux
-mgfx.style.ringRadialGradient(stopsOrColorA, colorB = nil)
+mgfx.api.ringRadialGradient(stopsOrColorA, colorB = nil)
 ```
 
 Creates a ring-local radial gradient. In ring/arc/sector shaders:
@@ -112,7 +112,7 @@ t = (r - innerRadius) / (outerRadius - innerRadius)
 ## sectorRadialGradient
 
 ```lux
-mgfx.style.sectorRadialGradient(stopsOrColorA, colorB = nil)
+mgfx.api.sectorRadialGradient(stopsOrColorA, colorB = nil)
 ```
 
 Creates a sector-local radial gradient using the same local radial space as
@@ -121,8 +121,8 @@ Creates a sector-local radial gradient using the same local radial space as
 ## conicGradient
 
 ```lux
-mgfx.style.conicGradient(cx, cy, rotationDeg, colorA, colorB)
-mgfx.style.conicGradient(cx, cy, rotationDeg, stops)
+mgfx.api.conicGradient(cx, cy, rotationDeg, colorA, colorB)
+mgfx.api.conicGradient(cx, cy, rotationDeg, stops)
 ```
 
 Creates a full 360-degree angular gradient around the normalized center. This
@@ -131,7 +131,7 @@ is not the same as shape-local angular gradients used by arc/sector spans.
 ## shapeAngularGradient
 
 ```lux
-mgfx.style.shapeAngularGradient(stopsOrColorA, colorB = nil, rotation = nil)
+mgfx.api.shapeAngularGradient(stopsOrColorA, colorB = nil, rotation = nil)
 ```
 
 Creates a local angular gradient over the current ring/arc/sector angular
@@ -140,7 +140,7 @@ range.
 ## ringAngularGradient
 
 ```lux
-mgfx.style.ringAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
+mgfx.api.ringAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
 ```
 
 Alias for ring-local angular paint.
@@ -148,7 +148,7 @@ Alias for ring-local angular paint.
 ## arcAngularGradient
 
 ```lux
-mgfx.style.arcAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
+mgfx.api.arcAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
 ```
 
 Creates an angular gradient over `startDeg..endDeg` for arc drawing.
@@ -156,7 +156,7 @@ Creates an angular gradient over `startDeg..endDeg` for arc drawing.
 ## sectorAngularGradient
 
 ```lux
-mgfx.style.sectorAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
+mgfx.api.sectorAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
 ```
 
 Creates an angular gradient over `startDeg..endDeg` for sector drawing.
@@ -164,7 +164,7 @@ Creates an angular gradient over `startDeg..endDeg` for sector drawing.
 ## stripePattern
 
 ```lux
-mgfx.style.stripePattern(color, spacing = 12, width = 2, angle = 135, offset = 0)
+mgfx.api.stripePattern(color, spacing = 12, width = 2, angle = 135, offset = 0)
 ```
 
 Creates a procedural stripe pattern record. Use it as `style.pattern`,
@@ -173,7 +173,7 @@ Creates a procedural stripe pattern record. Use it as `style.pattern`,
 ## smokePattern
 
 ```lux
-mgfx.style.smokePattern(color, scale = 140, density = 0.48, softness = 0.3, angle = 135, offset = 0, seed = 0)
+mgfx.api.smokePattern(color, scale = 140, density = 0.48, softness = 0.3, angle = 135, offset = 0, seed = 0)
 ```
 
 Creates a procedural smoke/noise pattern record.
@@ -181,7 +181,7 @@ Creates a procedural smoke/noise pattern record.
 ## transform
 
 ```lux
-mgfx.geometry.transform(spec = nil)
+mgfx.api.transform(spec = nil)
 ```
 
 Copies a CSS-like draw transform record for use as `style.transform`.
@@ -201,7 +201,7 @@ Common fields:
 ## pointerTilt
 
 ```lux
-mgfx.geometry.pointerTilt(x, y, spec = nil)
+mgfx.api.pointerTilt(x, y, spec = nil)
 ```
 
 Creates a pointer-driven 2.5D transform record. It is useful for panels, wheel
@@ -210,7 +210,7 @@ items, and cards that visually tilt toward the mouse.
 ## projectedQuad
 
 ```lux
-mgfx.geometry.projectedQuad(spec = nil)
+mgfx.api.projectedQuad(spec = nil)
 ```
 
 Creates an expert projected-quad transform. Prefer `pointerTilt` or
@@ -219,7 +219,7 @@ Creates an expert projected-quad transform. Prefer `pointerTilt` or
 ## pushTransform
 
 ```lux
-mgfx.geometry.pushTransform(spec, x = nil, y = nil, w = nil, h = nil)
+mgfx.api.pushTransform(spec, x = nil, y = nil, w = nil, h = nil)
 ```
 
 Pushes a draw-phase transform for multiple immediate draws. Returns a truthy
@@ -228,7 +228,7 @@ value when the transform was pushed.
 ## popTransform
 
 ```lux
-mgfx.geometry.popTransform()
+mgfx.api.popTransform()
 ```
 
 Pops the active draw transform.
@@ -236,7 +236,7 @@ Pops the active draw transform.
 ## transformPoint
 
 ```lux
-mgfx.geometry.transformPoint(x, y)
+mgfx.api.transformPoint(x, y)
 ```
 
 Maps a point through the current transform.
@@ -244,7 +244,7 @@ Maps a point through the current transform.
 ## untransformPoint
 
 ```lux
-mgfx.geometry.untransformPoint(sx, sy)
+mgfx.api.untransformPoint(sx, sy)
 ```
 
 Approximately maps a transformed point back to local space. Use for visual
@@ -253,7 +253,7 @@ alignment helpers only; layout and hit testing remain caller-owned.
 ## get
 
 ```lux
-mgfx.capabilities.get(target)
+mgfx.api.getCapabilities(target)
 ```
 
 Returns implemented render slots and metadata for a target. The installed
@@ -278,14 +278,14 @@ mgfx.capabilities.TARGET.TEXT
 ## supports
 
 ```lux
-mgfx.capabilities.supports(target, key)
+mgfx.api.supports(target, key)
 ```
 
 Checks whether a target supports a public render slot.
 
 ```lux
-if mgfx.capabilities.supports(mgfx.capabilities.TARGET.RING, "outerGlow") {
-  mgfx.widgets.ringEx(cx, cy, 36, 6, {
+if mgfx.api.supports(mgfx.capabilities.TARGET.RING, "outerGlow") {
+  mgfx.api.ringEx(cx, cy, 36, 6, {
     fill = Color(80, 170, 255),
     outerGlow = { width = 14 },
   })
