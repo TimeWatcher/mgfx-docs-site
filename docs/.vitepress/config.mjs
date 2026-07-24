@@ -314,8 +314,9 @@ const englishSidebar = [
         items: [
           { text: "Family Index", link: "/api-reference/" },
           { text: "Frame Scope and Debugging", link: "/api-reference/frame" },
+          { text: "Coverage Masks and Clip", link: "/api-reference/masks-and-clip" },
           { text: "Primitives", link: "/api-reference/primitives" },
-          { text: "Images and Masks", link: "/api-reference/images" },
+          { text: "Images and Per-Image Masks", link: "/api-reference/images" },
           { text: "Widgets", link: "/api-reference/widgets" },
           { text: "Text API", link: "/api-reference/text-api" },
           { text: "Paint, Patterns, Transforms, and Capabilities", link: "/api-reference/paint" },
@@ -359,8 +360,9 @@ const chineseSidebar = [
         items: [
           { text: "分组入口", link: "/zh/api-reference/" },
           { text: "帧作用域与调试", link: "/zh/api-reference/frame" },
+          { text: "Coverage Mask、Clip 与自遮罩", link: "/zh/api-reference/masks-and-clip" },
           { text: "基础图元", link: "/zh/api-reference/primitives" },
-          { text: "图像与遮罩", link: "/zh/api-reference/images" },
+          { text: "图像与单图遮罩", link: "/zh/api-reference/images" },
           { text: "组件图元", link: "/zh/api-reference/widgets" },
           { text: "文本 API", link: "/zh/api-reference/text-api" },
           { text: "绘制、图案、变换与能力", link: "/zh/api-reference/paint" },
