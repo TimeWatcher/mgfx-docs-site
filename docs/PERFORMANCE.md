@@ -1,178 +1,151 @@
 # MGFX Performance Model
 
-MGFX does not try to "eliminate immediate drawing". Its goal is to keep the
-immediate mental model while reducing wasteful Lua work, Source material
-parameter uploads, temporary tables, and temporary `Color` objects. In common
-GMod UI, draw call count alone is rarely the only problem. The expensive part
-is often per-frame scheduling, classification, conversion, and parameter upload
-work.
+MGFX optimizes the immediate drawing model instead of hiding it behind a large scheduler. Garry's Mod UI performance is usually lost through Lua-side bookkeeping, temporary tables, material parameter churn, and unnecessary Source API calls, not draw count alone.
 
-## Current Direction
+## Design Goals
 
-- Shapes and widgets stay on immediate shader/fallback paths.
-- Only measured special-purpose fused shaders remain. The general
-  data-texture batch scheduler is not coming back.
-- Common shape parameters are uploaded through `$viewprojmat` / pixel shader
-  register `c11`.
-- `$c0..$c3` are reserved as auxiliary parameter pages for fused shaders.
-- Patterns are generated mathematically in shaders, not expanded into many
-  `LineEx` calls or geometry segments.
-- Scoreboards, tables, chat, and plain labels should prefer native GMod text.
+- Keep shape and HUD-meter rendering on immediate shader/fallback paths.
+- Flatten public style records at the API boundary; internal draw layers should receive prepared scalar, fill, and effect parameters.
+- Upload hot-path parameters through the shared matrix parameter page when possible.
+- Use focused fused effect shaders when they remove repeated Lua setup without changing the source-over result.
+- Treat patterns as shader paint fields instead of geometry recipes.
+- Avoid per-frame allocations in common drawing calls.
+- Keep text routing explicit: native text for normal labels, composer text only for shader effects.
+
+## Current Baseline
+
+The current representative stress case is a complex shop UI using many rounded
+boxes, gradients, strokes, shadows, glows, and image/text rows. With diagnostics
+disabled, recent in-game testing showed:
+
+```text
+Full item list      stable 130+ FPS
+Lighter categories  stable 160+ FPS
+```
+
+This result came from reducing Lua-side preparation and redundant passes. It
+was not achieved by reintroducing a general batch scheduler.
+
+## Hot Path Rules
+
+| Rule | Reason |
+| --- | --- |
+| Prefer `Name(...)` for very simple calls. | Short signatures avoid table allocation and style normalization. |
+| Use `NameEx(..., style)` when parameters need names. | Readability wins once a call has effects, masks, or multiple optional fields. |
+| Reuse style tables for stable HUD elements. | Lua table churn is visible in frequently painted panels. |
+| Use paint records for gradients and patterns. | The renderer can keep the effect inside the shape shader. |
+| Do not emulate patterns with many primitives. | Many small line/box calls add Lua and draw overhead without improving quality. |
+
+## Prepared Draw Layers
+
+Public API calls may use style tables because that is the ergonomic interface
+for GLua and Lux callers. Renderer internals should not keep passing those
+tables through multiple layers.
+
+The hot path should follow this shape:
+
+```text
+public API style table
+  -> one boundary parse
+  -> prepared fill/stroke/effect scalar parameters
+  -> shader/fallback draw
+```
+
+Avoid this shape in new renderer code:
+
+```text
+style table
+  -> helper table/spec
+  -> forwarded style table
+  -> second normalization
+  -> shader/fallback draw
+```
+
+Rounded boxes, chamfers, progress/segment widgets, image round/chamfer paths,
+line-backed rectangles, and polygon/chamfer fallback helpers now use prepared
+parameters internally. This keeps the public API readable while removing
+repeated `shadowRaw`, `outerGlowRaw`, `innerGlowRaw`, `backdropStyle`,
+`patternStyle`, `fillFromStyle`, and `fillVisible` work from inner loops.
 
 ## Parameter Upload
 
-Local GMod benchmark result:
+The hot path should prefer matrix pages over individual float constants:
 
 ```text
-SetFloat x16             ~3.6-3.9 us/iter
-SetUnpacked + SetMatrix  ~0.5-0.6 us/iter
+c11 / $viewprojmat     MGFXExtraParams, main 16-float page
+c15 / $invviewprojmat  MGFXAuxParams, auxiliary 16-float page
 ```
 
-The hot shape path therefore packs 16 common float parameters into
-`Matrix():SetUnpacked(...)` and uploads them with:
+Local GMod profiling showed repeated `SetFloat` calls are several times more expensive than `SetUnpacked + SetMatrix`. Treat `$c0..$c3` as compatibility/diagnostic registers, not the default parameter path for new shaders.
 
-```lua
-mat:SetMatrix("$viewprojmat", matrix)
-```
+## Fused Effect Passes
 
-HLSL reads the page as:
+The current renderer intentionally fuses compatible `shadow + outerGlow` work for rounded boxes, chamfers, rings, and image masks. This removes duplicated style preparation, material setup, and draw calls while preserving the visual layers.
 
-```hlsl
-const float4x4 MGFXExtraParams : register(c11);
-```
+Rounded boxes also support layered `shadow = { {...}, {...} }`. This is cheaper
+than stacking multiple full `RoundedBoxEx` calls: style parsing happens once,
+the renderer loops only the shadow path for each layer, and the body/effects
+that belong to the source shape are drawn once.
 
-Source/GMod matrix indices arrive in HLSL by column. Lua call sites must use
-the shared MGFX packing helper and should not guess row/column order locally.
+Do not fuse layers just because two shaders look similar. Backdrop blur reads the framebuffer, pattern layers can affect blend order, and convex polygons need their auxiliary page for vertices, so those paths must stay separate unless a measured implementation proves pixel-equivalent output.
 
-`SetFloat("$cN_x", ...)` still exists, but it is a fallback. Use `$c0..$c3`
-only when a shader has filled the 16-float main page and still needs extra data
-in the same pass for visual consistency.
+## Shared Backdrop Blur
 
-## Mathematical Patterns
+Backdrop blur is shared by engine frame and integer `backdrop.level`, not
+captured per widget. The first nonzero blur in a level captures the current
+framebuffer and runs the two full-screen separable axes. Shapes with the same
+level and intensity reuse that result and only perform their masked sample.
 
-Patterns should not be expanded by the caller into many lines, boxes, or
-polygons. `StripePattern` and `SmokePattern` are paint slots sampled directly
-by the shape shader in local space.
-
-Good direction:
-
-```lua
-MGFX.RoundedBoxEx(x, y, w, h, {
-    radius = 8,
-    fill = Color(8, 18, 24, 220),
-    pattern = MGFX.StripePattern({
-        color = Color(255, 255, 255, 22),
-        spacing = 12,
-        width = 2,
-        angle = 135,
-    }),
-})
-```
-
-Wrong direction:
-
-```lua
-for i = 1, 40 do
-    MGFX.LineEx(...)
-end
-```
-
-If a UI needs a large striped, smoke, scanline, or noise background, add shader
-pattern support for the shape rather than stacking primitives in UI code.
-
-## Fused Shader Strategy
-
-Special-purpose shaders are allowed, but they must reproduce the original
-layered result.
-
-Requirements:
-
-- Input layout is clear and the main parameter page is `MGFXExtraParams`.
-- Extra parameters use only `$c0..$c3`.
-- Antialiasing, stroke, transparent gradients, patterns, glow, backdrop, and
-  blend order match the original path.
-- A pass reduction must not change source-over visual results.
-
-Current fused paths:
+For `N` blurred backdrops with no explicit recapture, the expected counters are:
 
 ```text
-roundrect_fx   fill/stroke + innerGlow
-chamfer        fill/stroke + optional innerGlow
-ring_fx        fill/stroke + optional innerGlow
+captures     1
+reuses       N - 1
+blur passes  2
 ```
 
-`outerGlow`, `backdrop`, `shadow`, and some `pattern` paths may remain separate
-passes because draw bounds, framebuffer reads, blur sources, or blend order are
-visible behavior.
+Changing intensity inside one level reruns the two blur axes from that level's
+raw capture without another framebuffer copy. Increasing `backdrop.level`
+captures the framebuffer at that point, so the higher layer can include UI
+already drawn below it. Use `backdrop.recapture = true` only to force a newer
+source within the same level. Do not set it on every card or row.
 
-## Allocation Rules
+## Shader and Fallback Routing
 
-Avoid this on hot paint paths:
+Shader paths are the normal renderer path. Fallbacks exist for missing shaders, disabled shader mode, unsupported combinations, or platform limitations.
 
-```lua
-MGFX.RoundedBoxEx(x, y, w, h, {
-    fill = Color(20, 24, 32, 220),
-})
+Fallback output should remain readable and stable, but it is allowed to lose advanced visual fidelity such as exact glow softness, procedural smoke, or shader text composition.
 
-local c = colorAlpha(baseColor, alpha)
-```
+## Text
 
-The first form allocates a style table and a `Color` every frame. The second
-form also allocates if it returns a new `Color`. MGFX reuses internal scratch
-records where possible, but callers should still cache stable style tables,
-patterns, gradients, and colors.
+Plain labels, player names, scoreboard rows, chat lines, logs, and fast-changing counters should stay on native GMod text unless they need shader effects.
 
-Better:
+Use MGFX text composition only for:
 
-```lua
-local panelFill = Color(20, 24, 32, 220)
-local panelStyle = {
-    radius = 8,
-    fill = panelFill,
-}
+- gradient text faces
+- soft outline or stroke
+- glow titles
+- polished display text
+- stable labels worth prewarming
 
-function PANEL:Paint(w, h)
-    MGFX.RoundedBoxEx(0, 0, w, h, panelStyle)
-end
-```
+High-churn text with shader effects can consume atlas space quickly. Prewarm only predictable strings.
 
-If a color changes every frame, prefer mutating a reused `Color` object or
-caching a small number of UI states. Do not allocate temporary objects for
-every scoreboard cell, list row, or HUD table item every frame.
+## Practical Checklist
 
-## Text Cost Model
+- Draw large background panels first, then foreground widgets, then text.
+- Prefer one `StartPanel` / `EndPanel` pair per panel paint.
+- Avoid nested `PushClip` unless the clipped content actually needs it.
+- Reserve `Clip` for mixed content that genuinely needs a shared antialiased boundary. Every scope performs two framebuffer copies and one bounded composite draw; a custom Mask also rasterizes its coverage on a content-revision/extent/subpixel-phase cache miss. Integer translation reuses the raster. Coverage clears and Boolean combines are locally scissored. Reuse Mask objects and call `Invalidate` only when painter inputs change.
+- Clip keeps two full-frame `BGRA8888` snapshot RTs per reached nesting depth and lazily adds a third RT when that depth uses a custom Mask: roughly 15.82/23.73 MiB per depth at 1080p and 63.28/94.92 MiB at 4K. Nesting is capped at four.
+- Reuse gradients, masks, and style tables when they are stable.
+- Avoid constructing many `Color(...)` objects in tight loops.
+- Keep smoke, stripe, and worn surface effects in `pattern` fields.
 
-Plain text uses native GMod text. The MGFX text composer is only for text that
-needs shader effects such as gradient face, soft outline, glow, surface polish,
-or weight bias.
+## When Adding Renderer Features
 
-High-frequency text should be native when it does not need effects:
+Do not add a generalized batching layer to solve a single UI case. Add a focused shader/fallback path only when:
 
-- scoreboard rows
-- player names
-- dense tables
-- chat/log
-- rapidly changing counters
-
-For FX text, keep the string set stable and use `MGFX.PrewarmText` where
-possible.
-
-## Profiling
-
-During development:
-
-```text
-mgfx_profile 1
-mgfx_draw_counts 1
-mgfx_status
-```
-
-For real FPS checks, turn diagnostics off:
-
-```text
-mgfx_profile 0
-mgfx_draw_counts 0
-```
-
-Diagnostics themselves add counters and text output. Final judgment should use
-the game with diagnostics disabled.
+- the call site exists and is measurable
+- the visual result can be matched reliably
+- parameter layout is documented
+- API docs and examples are updated

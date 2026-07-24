@@ -4,233 +4,125 @@ layout: home
 hero:
   name: "MGFX"
   text: "Modern GMod FX"
-  tagline: "Shader-backed immediate UI rendering for Garry's Mod. Use @lux/mgfx from Lux, or ship the generated loader and call MGFX.* from plain GLua."
+  tagline: "Shader-backed immediate rendering for Garry's Mod UI. Start with your runtime, then use the same renderer concepts for shapes, images, meters, text effects, gradients, masks, glow, and backdrop blur."
   actions:
     - theme: brand
-      text: Use with Plain GLua
-      link: /USAGE#use-with-plain-glua
+      text: Start With GLua
+      link: /guide/glua
     - theme: alt
-      text: Use from Lux
-      link: /USAGE#use-from-lux
+      text: Start With Lux
+      link: /guide/lux
     - theme: alt
       text: API Reference
-      link: /API
+      link: /api-reference/
     - theme: alt
       text: 中文文档
       link: /zh/
 
 features:
-  - title: Use with Plain GLua
-    details: Existing addons can mount the generated loader distribution and call MGFX.StartPanel, MGFX.RoundedBoxEx, gradients, text, widgets, and diagnostics through MGFX.*.
-  - title: Native Lux package
-    details: MGFX lives in @lux/mgfx, uses Lux module parts, client realm exports, and compiler-generated GMod loaders instead of hand-written include order.
-  - title: Shape-correct effects
-    details: Rounded boxes, chamfers, circles, capsules, rings, arcs, sectors, and image masks clip glow and backdrop effects to their own coverage.
-  - title: Full stop gradients
-    details: Linear, radial, conic, ring/sector-local radial, and shape-local angular gradients use one normalized stop pipeline.
-  - title: Efficient parameter upload
-    details: Hot shape parameters use the matrix-backed parameter page instead of many per-float Source material calls.
+  - title: Pick your runtime first
+    details: Plain GLua projects use lua-mgfx and MGFX.*. Lux projects import @lux/mgfx and use mgfx.api.*.
+  - title: Immediate renderer, not framework
+    details: MGFX draws the explicit visual state you pass every frame. Layout, input, focus, animation, and hit testing stay in caller code.
+  - title: Shape-aware effects
+    details: Rounded boxes, chamfers, polygons, rings, sectors, images, and masks clip shadow, glow, backdrop, and patterns to their own coverage.
+  - title: Paired examples
+    details: User-facing guides show GLua and Lux equivalents so readers do not need to translate API names by guesswork.
 ---
 
-## Use with Plain GLua
-
-Use the generated loader distribution when an addon is still written in GLua.
-After the client loader runs, MGFX installs the global facade and existing
-panels can call `MGFX.*` directly.
-
-```lua
-function PANEL:Paint(w, h)
-  MGFX.StartPanel(self, w, h)
-  MGFX.RoundedBoxEx(0, 0, w, h, {
-    radius = 10,
-    fill = MGFX.LinearGradient(
-      0,
-      0,
-      1,
-      1,
-      Color(30, 130, 255, 230),
-      Color(255, 210, 110, 230)
-    ),
-  })
-  MGFX.EndPanel()
-end
-```
-
-## Quick Start from Lux
+## Quick Start
 
 ::: code-group
+
+```lua [GLua]
+function PANEL:Paint(w, h)
+    MGFX.StartPanel(self, w, h)
+
+    MGFX.RoundedBoxEx(0, 0, w, h, {
+        radius = 10,
+        fill = Color(8, 14, 20, 170),
+        backdrop = {blur = 8, tint = Color(0, 8, 12, 120)},
+        outerGlow = {color = Color(70, 205, 255, 64), width = 12},
+    })
+
+    MGFX.ProgressBarEx(24, 84, w - 48, 10, 0.72, {
+        radius = 5,
+        track = Color(10, 18, 24, 190),
+        fill = MGFX.LinearGradient(0, 0, 1, 0, Color(30, 130, 255), Color(255, 210, 110)),
+    })
+
+    MGFX.EndPanel()
+end
+```
 
 ```lux [Lux]
 import * as mgfx from "@lux/mgfx"
 
-client fn paintPanel(panel, w, h) {
-  mgfx.api.startPanel(panel, w, h)
+fn PANEL:Paint(w, h) {
+  local draw = mgfx.api
+  draw.startPanel(self, w, h)
 
-  mgfx.api.roundedBoxEx(0, 0, w, h, {
+  draw.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.api.linearGradient(0, 0, 1, 1, {
-      {0.00, Color(30, 130, 255, 230)},
-      {0.55, Color(60, 200, 255, 230)},
-      {1.00, Color(255, 210, 110, 230)},
-    }),
-    backdrop = { blur = 8, tint = Color(0, 8, 12, 120) },
+    fill = Color(8, 14, 20, 170),
+    backdrop = {blur = 8, tint = Color(0, 8, 12, 120)},
+    outerGlow = {color = Color(70, 205, 255, 64), width = 12},
   })
 
-  mgfx.api.progressBarEx(24, 84, w - 48, 10, 0.72, {
+  draw.progressBarEx(24, 84, w - 48, 10, 0.72, {
     radius = 5,
     track = Color(10, 18, 24, 190),
-    fill = mgfx.api.linearGradient(
-      0, 0, 1, 0,
-      Color(30, 130, 255, 230),
-      Color(60, 200, 255, 230)
-    ),
+    fill = draw.linearGradient(0, 0, 1, 0, Color(30, 130, 255), Color(255, 210, 110)),
   })
 
-  mgfx.api.endPanel()
+  draw.endPanel();
 }
 ```
 
-```lua [Generated Lua Shape]
-local mgfx = __lux_import("@lux/mgfx")
-
-local function paintPanel(panel, w, h)
-  mgfx.api.startPanel(panel, w, h)
-  mgfx.api.roundedBoxEx(0, 0, w, h, {
-    radius = 10,
-    fill = mgfx.api.linearGradient(0, 0, 1, 1, {
-      {0.00, Color(30, 130, 255, 230)},
-      {0.55, Color(60, 200, 255, 230)},
-      {1.00, Color(255, 210, 110, 230)},
-    }),
-    backdrop = {
-      blur = 8,
-      tint = Color(0, 8, 12, 120),
-    },
-  })
-  mgfx.api.progressBarEx(24, 84, w - 48, 10, 0.72, {
-    radius = 5,
-    track = Color(10, 18, 24, 190),
-    fill = mgfx.api.linearGradient(
-      0, 0, 1, 0,
-      Color(30, 130, 255, 230),
-      Color(60, 200, 255, 230)
-    ),
-  })
-  mgfx.api.endPanel()
-end
-```
-
 :::
 
-## Documentation Entry Points
+## Start Here
 
 <div class="mgfx-capability-grid">
-  <a href="./USAGE#use-with-plain-glua">
-    <span>Start</span>
-    <strong>Use with Plain GLua</strong>
-    <small>Mount the generated loader distribution, then call the installed MGFX.* facade from existing panels.</small>
+  <a href="./guide/glua">
+    <span>GLua</span>
+    <strong>Plain GLua Quick Start</strong>
+    <small>Install lua-mgfx as a normal Garry's Mod addon and call MGFX.* from client drawing code.</small>
   </a>
-  <a href="./USAGE#use-from-lux">
+  <a href="./guide/lux">
     <span>Lux</span>
-    <strong>Use from Lux</strong>
-    <small>Install luxc, import @lux/mgfx, expose MGFX.* when needed, and build the generated GMod addon.</small>
+    <strong>Lux Quick Start</strong>
+    <small>Install @lux/mgfx, import mgfx.api, and use the lowerCamelCase facade.</small>
   </a>
-  <a href="./API">
-    <span>API</span>
-    <strong>Overview</strong>
-    <small>Frame scopes, primitives, images, widgets, text, paint records, transforms, and capability queries.</small>
+  <a href="./guide/concepts">
+    <span>Guide</span>
+    <strong>Core Concepts</strong>
+    <small>Frame scope, Name/NameEx, style tables, text routing, and API naming.</small>
   </a>
   <a href="./api-reference/">
     <span>Reference</span>
-    <strong>Detailed API</strong>
-    <small>Function signatures, parameter tables, notes, return values, and examples grouped by feature family.</small>
-  </a>
-  <a href="./PERFORMANCE">
-    <span>Performance</span>
-    <strong>Runtime Model</strong>
-    <small>Immediate paths, matrix parameter upload, mathematical patterns, allocations, and text cost.</small>
-  </a>
-  <a href="./ARCHITECTURE">
-    <span>Architecture</span>
-    <strong>Lux Package Internals</strong>
-    <small>How the old Lua addon was rebuilt with module parts, realm exports, package imports, and generated loaders.</small>
-  </a>
-  <a href="./SHADERS">
-    <span>Shader</span>
-    <strong>Build and Packaging</strong>
-    <small>Shaderpack generation, register layout, gradient LUTs, alpha handling, and GMA validation.</small>
+    <strong>API Reference</strong>
+    <small>Exact signatures, parameter tables, style fields, return values, and caveats.</small>
   </a>
 </div>
 
-## Boundary
+## Reading Order
 
-MGFX is a Lux package and a renderer, not a UI framework. It does not own
-layout, input, focus, component lifecycle, transition state, or hit testing.
-Callers compute the current visual state each frame and pass explicit draw
-arguments to `mgfx.api.*` in Lux or to the installed `MGFX.*` facade in GLua.
+1. Pick [Plain GLua](./guide/glua) or [Lux](./guide/lux).
+2. Read [Core Concepts](./guide/concepts) before copying advanced effects.
+3. Use [Effects](./guide/effects) for shadow, glow, backdrop, and patterns.
+4. Open the [API Reference](./api-reference/) only when you need exact fields.
 
-Text follows the same rule. Plain text should stay on native GMod text paths.
-Only text that needs MGFX shader effects should use the whole-run composer.
+## Scope
 
-## License
+MGFX is a renderer, not a UI framework. It does not own layout, input, focus, component lifecycle, transition state, or hit testing. Callers compute the current visual state every frame and pass explicit draw arguments to `MGFX.*` or `mgfx.api.*`.
 
-MGFX is distributed under the Lux MGFX Non-Commercial License. Non-commercial
-use is allowed under that license. Commercial use requires a separate written
-license from the copyright holder. See [the repository license files](https://github.com/TimeWatcher/mgfx-docs-site)
-and the package license before shipping MGFX in a server, product, paid
-service, sponsored work, or other commercial context.
+Plain labels should usually use native GMod text or `Text`. Use `TextEx` only when you need shader text effects such as gradient faces, glow, stroke, or high-quality shadow.
 
 ## Maintenance Rules
 
-- When public APIs change, update [API Overview](./API) and the relevant [detailed API family page](./api-reference/).
-- When shader parameter layout, gradient LUTs, alpha handling, or shaderpack generation changes, update [Shader Build and Packaging](./SHADERS).
-- When the runtime path changes, update [MGFX Performance Model](./PERFORMANCE).
-- Do not edit generated site output by hand. Change the Markdown source and rebuild.
-
-## Example: Wheel Sector
-
-::: code-group
-
-```lux [Lux]
-local fill = mgfx.api.sectorAngularGradient({
-  {0.00, Color(35, 212, 232, 170)},
-  {0.52, Color(80, 220, 160, 150)},
-  {1.00, Color(245, 158, 11, 135)},
-})
-
-mgfx.api.sectorEx(cx, cy, innerR, outerR, startDeg, endDeg, {
-  fill = fill,
-  stroke = Color(255, 255, 255, 34),
-  strokeWidth = 1,
-  backdrop = { blur = 7, tint = Color(4, 10, 14, 120) },
-  innerGlow = { color = Color(255, 96, 78, 90), width = 28 },
-  transform = mgfx.api.pointerTilt(mx, my, {
-    perspective = 900,
-    maxRotateX = 4,
-    maxRotateY = 6,
-  }),
-})
-```
-
-```lua [Installed MGFX Facade]
-local fill = MGFX.SectorAngularGradient({
-    {0.00, Color(35, 212, 232, 170)},
-    {0.52, Color(80, 220, 160, 150)},
-    {1.00, Color(245, 158, 11, 135)},
-})
-
-MGFX.SectorEx(cx, cy, innerR, outerR, startDeg, endDeg, {
-    fill = fill,
-    stroke = Color(255, 255, 255, 34),
-    strokeWidth = 1,
-    backdrop = {blur = 7, tint = Color(4, 10, 14, 120)},
-    innerGlow = {color = Color(255, 96, 78, 90), width = 28},
-    transform = MGFX.PointerTilt(mx, my, {
-        perspective = 900,
-        maxRotateX = 4,
-        maxRotateY = 6,
-    }),
-})
-```
-
-:::
+- Public API changes must update [Core Concepts](./guide/concepts) and the matching [API Reference task page](./api-reference/).
+- User-facing examples should show GLua and Lux equivalents unless the page is explicitly runtime-specific.
+- Shader parameter layout, gradient LUT, alpha, or shaderpack changes must update [Shaders and Packaging](./SHADERS).
+- Runtime performance changes must update [Performance Model](./PERFORMANCE).
+- Do not edit `docs-site/` by hand. Update `docs/` and rebuild the site.

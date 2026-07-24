@@ -1,355 +1,142 @@
-# Shader Build and Packaging
+# Shaders and Packaging
 
-MGFX ships shader bytecode as a Lux client module, not as a hand-written Lua
-file under an addon tree. The generated shaderpack lives in:
+MGFX embeds compiled Source shader `.vcs` files into a Lua shaderpack. At runtime the shaderpack is mounted as a temporary GMA, then MGFX creates `screenspace_general` materials that reference the mounted pixel shaders.
 
-```text
-lux-mgfx/lux/mgfx/shaderpack/src/cl_module.lux
-```
-
-That module exports the active `VERSION`, a base64 GMA payload, and helper
-functions used by `@lux/mgfx/materials`. When a project imports `@lux/mgfx`,
-`luxc gmod build` includes the shaderpack module in the generated client Lua and
-the generated GMod loader sends it to clients with the rest of the client
-artifacts.
-
-## Runtime Flow
-
-At startup, `@lux/mgfx` installs the shaderpack and creates materials:
-
-```lux
-import * as shaderpack from "@lux/mgfx/shaderpack"
-import * as materials from "@lux/mgfx/materials"
-
-client fn createMgfxState() {
-  shaderpack.installGlobal()
-  materials.create()
-}
-```
-
-The generated Lua shape is equivalent to importing the two compiled modules and
-calling the same runtime functions. There is no project-maintained
-`include(...)` chain and no MGFX-specific autorun loader.
-
-Internally, `materials.create()`:
-
-1. Reads the current shaderpack with `shaderpack.current()`.
-2. Base64-decodes the embedded GMA payload.
-3. Writes it to `data/mgfx_shaders_<version>.gma`.
-4. Mounts it through `game.MountGMA`.
-5. Creates `screenspace_general` materials that point at versioned pixel and
-   vertex shader names.
-
-If a project deliberately provides a global `MGFXShaderPack` before MGFX
-initializes, `shaderpack.current()` can use that external pack. Normal Lux
-projects should rely on the package-shipped module.
-
-## Source Layout
-
-The runtime package source is:
+## Layout
 
 ```text
-lux-mgfx/
-  lux/
-    mgfx/
-      shadersrc/
-        build.py
-        build_shaders.bat
-        compile_shader_list.txt
-        src/
-      shaderpack/src/cl_module.lux
-      materials/src/
-        module.lux
-        cl_base.lux
-        cl_create.lux
-        cl_status.lux
-        cl_texture.lux
-        cl_install.lux
-      roundrect/src/
-      primitives/src/
-      widgets/src/
-      text/src/
-      style/src/
-  precompiled/
-  dist/lua/
+lua-mgfx/shadersrc/mgfx/
+  build.py
+  build_shaders.bat
+  compile_shader_list.txt
+  src/*.hlsl
+  src/shaders/fxc/*.vcs
+
+lux-mgfx/lux/mgfx/shaderpack/
+  src/cl_module.lux
+
+lux-mgfx/lux/mgfx/shaderpack_chunks/
+  chunk_01/src/cl_module.lux
+  ...
+  chunk_05/src/cl_module.lux
 ```
 
-`shadersrc/src/` contains the MGFX HLSL source and the committed `.vcs` output
-under `shaders/fxc/`. The committed `.vcs` files make pack-only regeneration
-possible even when the shader compiler cannot run on the current machine.
+The SDK helper tools are build-time only and must not be shipped as runtime files.
 
-The Windows shader compiler is carried as repository-level build
-infrastructure, outside the Lux package tree:
+## Rebuild Shaderpack
 
-```text
-lux-mgfx/tools/mgfx/sdk_screenspace_shaders/shadersrc/bin/ShaderCompile.exe
-```
-
-That binary toolchain is not part of the `lux/mgfx` module layout and is not
-copied into a generated addon. It exists only so MGFX maintainers can rebuild
-shader bytecode from source. Garry's Mod itself does not ship a shader compiler,
-so builds must use this bundled tool or an explicit `MGFX_SHADERCOMPILE` path.
-
-## Rebuild Contract
-
-When shader bytecode changes, the result must be regenerated into
-`lux-mgfx/lux/mgfx/shaderpack/src/cl_module.lux`. The plain GLua loader build
-under `dist/lua` consumes the same generated shaderpack through the
-`precompiled/` project.
-
-Common maintenance commands from `lux-mgfx/lux/mgfx/shadersrc`:
+From the repository root:
 
 ```powershell
-# Repack committed .vcs files into the Lux shaderpack module.
-python .\build.py --pack-only
-
-# Reproduce the current checked-in version.
-python .\build.py --pack-only --version 1781243087 --gma-timestamp 1781243088
-
-# Recompile HLSL with the bundled compiler, then regenerate the Lux module.
-python .\build.py
-
-# Override the bundled compiler when testing another ShaderCompile.exe build.
-$env:MGFX_SHADERCOMPILE = "C:\Path\To\ShaderCompile.exe"
-python .\build.py
+python .\lua-mgfx\shadersrc\mgfx\build.py
+python .\lux-mgfx\lux\mgfx\shadersrc\build.py
 ```
 
-The generated module must provide this public shape:
+The build script:
 
-```lux
-export client const VERSION = "..."
+1. Runs the shader compile list.
+2. Produces `.vcs` files under `src/shaders/fxc`.
+3. Packs them into the embedded shaderpack.
+4. Writes a small facade plus 40,000-character GLua files or independent Lux
+   chunk packages, so the generated runtime never depends on one oversized
+   source artifact.
 
-export client fn gma()
-export client fn pack()
-export client fn current()
-export client fn installGlobal(name = "MGFXShaderPack")
-```
+## Parameter Layout
 
-`pack()` returns:
-
-```lua
-{
-  Version = VERSION,
-  GMA = "<base64 gma payload>",
-}
-```
-
-Keep `VERSION` aligned with the shader names embedded in the GMA. MGFX material
-creation prefixes shader names with that version, for example:
-
-```text
-<version>_mgfx_roundrect_ps30
-<version>_mgfx_vs30
-```
-
-If the version and compiled shader filenames drift apart, materials will be
-created but will fail to bind real shaders, and MGFX will fall back.
-
-## Diagnostics
-
-Install the console package during development:
-
-```lux
-import * as mgfx from "@lux/mgfx"
-import * as console from "@lux/mgfx/console"
-
-client fn installTools() {
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-}
-```
-
-Then use:
-
-```text
-mgfx_status
-mgfx_param_probe
-mgfx_param_bench
-mgfx_profile 1
-mgfx_draw_counts 1
-```
-
-For formal FPS checks:
-
-```text
-mgfx_profile 0
-mgfx_draw_counts 0
-```
-
-Draw counters are disabled by default. In complex immediate UIs, counting a few
-hundred draws can itself become measurable overhead.
-
-## GMod Shader Rules
-
-These are hard rules learned from failures, not style preferences:
-
-- Do not rely directly on `DrawTexturedRectUV` for generated materials unless
-  UV correction is already handled. Prefer explicit four-point textured quads.
-- Antialiasing needs final screen-space size or UV derivatives. Logical size is
-  not enough for shader AA in physical pixels.
-- Clamp radius and chamfer cuts before SDF calculation.
-- Do not casually add data-texture parameter paths. The removed batch prototype
-  showed that upload and scheduling costs can outweigh draw-call savings.
-- `screenspace_general` constant registers must follow the documented MGFX
-  layout. MGFX currently treats `$c0..$c3` as custom draw parameters and
-  `$c4..$c7` as texture-size registers. Do not use temporary registers such as
-  `$c8`; they may compile but read as 0 or undefined at runtime.
-
-## Parameter Page Layout
-
-The 16 common float parameters for hot shape shaders use `$viewprojmat`, read in
-the pixel shader as:
+Hot shape shaders use matrix parameter pages, read in HLSL through the MGFX common helpers:
 
 ```hlsl
 const float4x4 MGFXExtraParams : register(c11);
+const float4x4 MGFXAuxParams   : register(c15);
 ```
 
-Lux-generated Lua writes the matrix with:
+Lua writes them with `Matrix():SetUnpacked(...)` followed by `SetMatrix("$viewprojmat", matrix)` for `c11` and `SetMatrix("$invviewprojmat", matrix)` for `c15`. This avoids the high cost of many individual `SetFloat("$cN_*", ...)` calls in hot paths.
 
-```lua
-mat:SetMatrix("$viewprojmat", matrix)
-```
+`MGFXExtraParams` is the main 16-float page. `MGFXAuxParams` is the auxiliary 16-float page for fused shaders and shape families that need more data, such as polygon vertices, chamfer cuts, ring stroke/inner glow data, text atlas data, and combined shadow/glow parameters. `$c0..$c3` remain declared for compatibility and diagnostics, but new hot rendering paths should prefer the matrix pages.
 
-GMod/Source matrix indices arrive in HLSL by column: `matrix[0]` reads
-`1,5,9,13`, `matrix[1]` reads `2,6,10,14`, and so on. Runtime code must use the
-shared MGFX packing helper instead of guessing row/column order at call sites.
+Rules:
 
-`MGFXExtraParams` is the main page. `$c0..$c3` are auxiliary pages for fused
-shaders that need more than 16 floats, such as chamfer cuts plus inner glow or
-ring stroke plus inner glow. Parameters that fit the main page should not use
-auxiliary pages.
+- Prefer `MGFXExtraParams` / `$viewprojmat` (`c11`) for the common page.
+- Use `MGFXAuxParams` / `$invviewprojmat` (`c15`) for extra fused-shader data.
+- Avoid `$c0..$c3` in hot paths unless a measured engine constraint leaves no matrix alternative.
+- Do not invent temporary registers such as `$c8`; they may compile but read as zero or undefined in GMod.
+- Document parameter layout changes in this file.
 
-In local GMod benchmarks, 16 independent `SetFloat` calls were roughly 7 times
-more expensive than `SetUnpacked + SetMatrix`, so hot shape paths should not
-return to per-float upload.
+## Image Mask Samplers
 
-## Fused Shape Fast Paths
+`mgfx_image_mask` keeps `$basetexture` fixed to `color/white`. It is the stable mapping carrier used by the `DrawTexturedRectUV` half-pixel correction, not the image being rendered. The shader sampler layout is:
 
-MGFX allows small special-purpose fused shaders, but they must reproduce the
-original layered result exactly.
+- `TexBase`: fixed local-UV mapping carrier.
+- `Tex1`: source image or render target.
+- `Tex2`: optional texture mask.
 
-Current paths:
+The corrected `i.uv` is reserved for normalized shape coordinates, while `SOURCE_UV` maps it into the source image. Do not bind a source image back to `$basetexture`: changing the material mapping dimensions couples source sampling to procedural SDF coordinates and distorts circle and rounded-mask coverage.
 
-- `mgfx_roundrect_fx_ps30`: roundrect fill/stroke plus inner glow. It is used
-  only when inner glow would otherwise require an extra pass.
-- `mgfx_chamfer_ps30`: chamfer fill/stroke plus optional inner glow. Fill and
-  stroke use `MGFXExtraParams`; cuts and inner-glow data use `$c0..$c3`.
-- `mgfx_ring_fx_ps30`: ring/arc/sector fill plus optional inner glow and stroke.
-  Fill-only rings still use the lighter `mgfx_ring_ps30`.
+## ShapeClip Composite
 
-These are not general "everything shaders". `pattern`, `shadow`, `outerGlow`,
-and `backdrop` may stay as separate passes because their draw bounds, source
-texture, or blend order are visible behavior. Any future fusion must prove
-pixel-level source-over equivalence, including transparent gradients and AA
-edges.
+`mgfx_shape_clip` is a framebuffer transaction shader, not a stencil mask. Its sampler layout deliberately leaves `TexBase` alone:
 
-## Shape-Space Gradients
+- `TexBase`: fixed `color/white`; it is never replaced at draw time.
+- `Tex1`: framebuffer after the Clip callback.
+- `Tex2`: custom coverage RT when the Mask is painter-defined.
+- `Tex3`: framebuffer before the Clip callback.
 
-MGFX has two gradient spaces:
+The shader computes analytical rounded/chamfer/circle/capsule coverage—or samples custom coverage—then returns `lerp(before, after, coverage)`. Custom Mask rasters include up to a one-pixel transparent border on each side; padding is reduced at framebuffer edges so full-screen masks remain valid. The shader samples that border without clamping or multiplying by a second rectangular coverage term; otherwise vector AA approaching the Clip bounds is visibly cut off. A rectangular scissor bounds the composite work only and never defines the shape edge.
 
-- Rectangular primitive space: `linearGradient`, `radialGradient`, and
-  `conicGradient` sample normalized UV inside primitive bounds. Rectangular
-  radial gradients must compensate by the shorter side to avoid stretching.
-- Ring/sector space: `ringRadialGradient`, `sectorRadialGradient`, and angular
-  fills are interpreted by the ring shader using the current geometry.
+### Do not dynamically replace `$basetexture`
 
-`arcEx` and `sectorEx` are not the same concept. `arcEx` is a round-capped arc
-segment suitable for gauge marks. `sectorEx` is a straight-edged radial wedge
-suitable for wheel menus. They may share a material family, but their
-signed-distance boundaries differ.
+`surface.DrawTexturedRectUV` applies an implicit half-texel adjustment derived from the currently bound `$basetexture` dimensions. Changing a shared material's `$basetexture` from its fixed placeholder to a full-screen render target after local UVs were prepared changes that hidden adjustment. The result is a second, wrong UV correction: local Mask coverage shifts, stretches, or loses pixels at its bounds.
 
-Ring/sector local radial fill:
-
-```text
-t = (r - innerRadius) / (outerRadius - innerRadius)
-```
-
-Local angular fill:
-
-```text
-t = (angle - startDeg) / (endDeg - startDeg)
-```
-
-This is not equivalent to a global `conicGradient`, which always describes a
-full 360-degree angular field around its center.
+For a shader that samples runtime render targets, declare `$texture1`, `$texture2`, and `$texture3` as texture-typed variables when the material is created, bind the RTs there, and keep `$basetexture` stable. A per-target blit material may use an RT as `$basetexture` only when that binding is fixed for the material's lifetime and the submitted UVs were computed for that texture size. This is why the internal coverage-copy materials are safe while the Clip composite material must not replace `$basetexture`.
 
 ## Gradient LUT
 
-Multi-stop gradients use a shared 1D LUT:
-
-- Runtime code normalizes, sorts, and completes 0/1 endpoints, then bakes a
-  256x4 render target.
-- The shader computes `t` and samples `$texture1`.
-- Linear, radial, conic, ring/sector radial, and shape/ring/arc/sector angular
-  gradients all use the same LUT sampling path.
-- LUTs are cached by stop table in a bounded LRU. Fast animation of stop colors
-  or positions churns the cache; prefer animating geometry, opacity, or an
-  explicit offset.
-- Fill records returned by `mgfx.api.linearGradient`,
-  `mgfx.api.radialGradient`, and `mgfx.api.conicGradient` are treated as
-  immutable. Create a new fill record when stops or colors change.
-
-## Alpha Pitfall
-
-Do not write gradient stop alpha into render-target alpha and then read it with
-`tex2D(...).a`. In GMod generated material / render-target paths, alpha write
-and later sampling can make transparent stops behave like opaque black.
-
-Visible symptom: a radial or linear highlight should fade to `alpha = 0`, but
-instead becomes a black rectangle or sector over the layers below it.
-
-The current `lut-alpha-rgb-v3` path deliberately stores alpha as ordinary color
-data:
+Multi-stop gradients use a cached 256x4 `BGRA8888` LUT. Each RGBA channel is
+encoded as 16-bit fixed point while the render target alpha remains opaque:
 
 ```text
-rows 0..1  store visible RGB, force alpha to 255
-rows 2..3  store stop alpha in grayscale RGB
+row 0      high bytes of RGB
+row 1      low bytes of RGB
+rows 2..3  high/low bytes of alpha in the R/G channels
 ```
 
-`mgfx_gradient_lut()` samples both data groups and reconstructs
-`float4(rgb, alpha)`. This is compatibility protection around Source
-RT/blend/alpha-write behavior.
+The pixel shader performs three filtered samples and reconstructs the original
+RGBA values. Keeping gradient alpha in color channels avoids Source render
+target alpha-write/sampling inconsistencies, while the high/low-byte encoding
+prevents the LUT itself from collapsing low-alpha ramps into repeated 8-bit
+steps.
 
-If this path changes, verify at least:
+Before returning a gradient color, the same pixel shader applies stable
+screen-space interleaved-gradient-noise dithering at half of one 8-bit LSB.
+The noise is derived from integer `VPOS`, uses correlated RGBA noise to avoid
+colored speckle, preserves exact 0/1 endpoints, and adds no sampler, texture, or
+draw pass.
 
-- `Color(r, g, b, 0)` stop outputs final alpha 0, not black.
-- Radial gradients over colored backgrounds reveal the layers underneath.
-- Text, lines, rounded boxes, ring radial gradients, and shape-local angular
-  gradients all read the same reconstructed alpha.
+## Adding a Shader
 
-## Generated Addon Contents
+Add a new shader only when the feature cannot be expressed cleanly through an existing shader/fallback path.
 
-A Lux project does not package the MGFX source tree directly. It packages the
-generated GMod output from `luxc gmod build`.
+Checklist:
 
-Expected runtime shape:
+- HLSL source is added to both source trees if needed.
+- Compile list includes the shader.
+- Generated `.vcs` files are updated.
+- Material creation maps the runtime key to the pixel shader.
+- Fallback behavior is defined, or shader-only behavior fails explicitly when a lower-quality result would violate the API contract.
+- API docs describe the field or function that uses the shader.
 
-```text
-generated/
-  lua/
-    autorun/
-      <bundle-specific loader>.lua
-    lux/
-      client/
-        ...
-```
+## Layering
 
-The exact generated filenames are owned by the Lux GMod backend and include the
-project bundle/package identity to avoid addon-wide filename collisions. Do not
-add an MGFX-specific autorun loader by hand.
+MGFX may use small focused fused shaders, but they must reproduce the original layered result.
 
-Expected non-runtime documentation repository contents:
+Current fused paths include:
 
-```text
-docs/
-site_build/
-node_modules/
-package.json
-package-lock.json
-```
+- `roundrect_fx`: fill/stroke plus inner glow when that saves a pass.
+- `roundrect_shadow_outer`: rounded-box shadow plus outer glow.
+- `chamfer`: chamfer fill/stroke plus optional inner glow.
+- `chamfer_shadow_outer`: chamfer shadow plus outer glow.
+- `ring_fx`: ring/arc/sector fill/stroke plus optional inner glow.
+- `ring_shadow_outer`: ring/arc/sector shadow plus outer glow.
+- `image_mask_shadow_outer`: rounded/chamfer/circle/capsule/texture image-mask shadow plus outer glow.
 
-Those files belong to this documentation repository and should not be copied
-into a runtime GMA.
-
-For why the batching prototype was removed, see
-[Removed Shape Batching Design](./BATCHING).
+The fused shadow/glow paths keep the API semantics separate: shadow is a CSS-like projected solid shape mask, while outer glow is exterior-only edge light. Convex polygon shadow/outer-glow paths remain separate because the polygon vertex data already consumes the auxiliary parameter page. Backdrop blur remains a separate pass because it samples the framebuffer and its source texture and blend order are visible behavior.

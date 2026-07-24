@@ -1,74 +1,42 @@
-# Detailed API Reference
+# API Reference
 
-This is the function-level reference for the MGFX public API. Start with
-[Use MGFX](../USAGE) if you are setting up a project, and read
-[API Overview](../API) for the conceptual model.
+This section is the task-oriented reference for public MGFX functions. It is intentionally about signatures, fields, return values, and caveats. Start with [Core Concepts](../guide/concepts) if you want the mental model first.
 
-MGFX has two public surfaces:
+These pages are documentation groups only. Application code should call `MGFX.*` in plain GLua or `mgfx.api.*` from `@lux/mgfx`; do not choose imports based on page names.
 
-```text
-Lux                 mgfx.api.roundedBoxEx(...)
-Plain GLua facade   MGFX.RoundedBoxEx(...)
-```
+## Runtime Names
 
-The detailed pages are grouped by topic for reading, not by import path. Lux
-examples use `mgfx.api.*`; the installed facade uses the same operation names
-in PascalCase.
+| Plain GLua | Lux |
+| --- | --- |
+| `MGFX.StartPanel(...)` | `mgfx.api.startPanel(...)` |
+| `MGFX.RoundedBoxEx(...)` | `mgfx.api.roundedBoxEx(...)` |
+| `MGFX.ImageEx(...)` | `mgfx.api.imageEx(...)` |
+| `MGFX.ProgressBarEx(...)` | `mgfx.api.progressBarEx(...)` |
+| `MGFX.LinearGradient(...)` | `mgfx.api.linearGradient(...)` |
+| `MGFX.TextEx(...)` | `mgfx.api.textEx(...)` |
 
-## Choose by Task
+API names, Lua parameter names, and shader terms are kept in English.
 
-| Need | Read first | Main entry points |
+## Task Pages
+
+| Area | Page | Main APIs |
 | --- | --- | --- |
-| Panels, buttons, badges, arrows, convex polygons | [Primitives](./primitives) | `roundedBoxEx`, `chamferBoxEx`, `regularPolyEx`, `diamondEx`, `caretEx`, `polyEx` |
-| Avatars, icons, cropping, rounded/chamfer/texture masks | [Images and Masks](./images) | `imageEx`, `iconEx`, `mask` |
-| Health bars, ammo pips, rings, gauges, wheel sectors | [Widgets](./widgets) | `progressBarEx`, `segmentBarEx`, `ringEx`, `arcEx`, `sectorEx` |
-| Plain labels, outlined text, glow titles, text boxes | [Text API](./text-api) | `text`, `textEx`, `textBoxEx`, `measureTextBox` |
-| Gradients, stops, patterns, draw transforms | [Paint, Patterns, Transforms, and Capabilities](./paint) | `linearGradient`, `radialGradient`, `sectorAngularGradient`, `stripePattern`, `pointerTilt` |
-| VGUI Paint / HUDPaint lifecycle | [Frame Scope and Debugging](./frame) | `startPanel`, `startScreen`, `pushClip`, `debugOverlay` |
-
-For ordinary controls, use the short signature or the matching `Ex` style
-table. Avoid adding a second helper layer unless it removes real project-level
-duplication.
-
-## Groups
-
-<div class="mgfx-capability-grid">
-  <a href="./frame">
-    <span>Frame</span>
-    <strong>Frame Scope and Debugging</strong>
-    <small>Panel/screen frames, rectangular clips, command flush, and debug overlay.</small>
-  </a>
-  <a href="./primitives">
-    <span>Shape</span>
-    <strong>Primitives</strong>
-    <small>Rounded boxes, chamfers, convex polygons, lines, circles, capsules, backdrop, and transforms.</small>
-  </a>
-  <a href="./images">
-    <span>Image</span>
-    <strong>Images and Masks</strong>
-    <small>Images, icons, fit/crop/UV, rounded masks, chamfer masks, circle masks, and texture masks.</small>
-  </a>
-  <a href="./widgets">
-    <span>Widget</span>
-    <strong>Widgets</strong>
-    <small>Progress bars, segment bars, rings, arcs, and radial sectors.</small>
-  </a>
-  <a href="./text-api">
-    <span>Text</span>
-    <strong>Text API</strong>
-    <small>Font aliases, text styles, measurement, prewarm, native text routing, and shader effects.</small>
-  </a>
-  <a href="./paint">
-    <span>Paint</span>
-    <strong>Paint, Patterns, Transforms, and Capabilities</strong>
-    <small>Colors, gradients, patterns, 2.5D transforms, and target capability queries.</small>
-  </a>
-</div>
+| Frame scope and diagnostics | [Frame and Debug](./frame) | `StartPanel`, `EndPanel`, `StartScreen`, `EndScreen`, `PushClip`, `PopClip`, `Mask`, `Clip`, `ShaderStatus` |
+| Shapes and lines | [Shapes and Lines](./primitives) | `RoundedBoxEx`, `ChamferBoxEx`, `PolyEx`, `LineEx`, `CircleEx`, `CapsuleEx` |
+| Images | [Images and Masks](./images) | `ImageEx`, `IconEx`, `Mask`, `MaterialSource`, `TextureSource` |
+| HUD meters and sectors | [HUD Meters and Sectors](./widgets) | `ProgressBarEx`, `SegmentBarEx`, `RingEx`, `ArcEx`, `SectorEx` |
+| Text | [Text API](./text-api) | `Text`, `TextEx`, `TextBoxEx`, `MeasureText`, `PrewarmText` |
+| Paint records and transforms | [Paint, Patterns, Transforms](./paint) | `LinearGradient`, `SmokePattern`, `WornPattern`, `Transform`, `PointerTilt`, `GetCapabilities` |
 
 ## Reading Order
 
-- New Lux code should import `@lux/mgfx` and call `mgfx.api.*`.
-- Existing GLua code may call the installed `MGFX.*` facade after
-  `mgfx.installGlobal("MGFX")`.
-- When changing public behavior, update the overview and the relevant detailed
-  family page together.
+1. [Plain GLua Quick Start](../guide/glua) or [Lux Quick Start](../guide/lux)
+2. [Core Concepts](../guide/concepts)
+3. The task page for the API you are calling
+4. [Performance Model](../PERFORMANCE) when changing hot paths
+5. [Shaders and Packaging](../SHADERS) when changing shader parameters or shaderpack contents
+
+## Notes
+
+- Subpackages are public enough for maintainers and narrow tooling, but the facade is the normal user-facing API.
+- Capabilities describe implemented render slots, not future plans.

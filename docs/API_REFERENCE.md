@@ -1,11 +1,14 @@
-# Detailed API Reference
+# API Reference
 
-This compatibility page points to the grouped MGFX public API reference.
+This page is kept as a compatibility entry for older links.
 
-- [Family Index](./api-reference/)
-- [Frame Scope and Debugging](./api-reference/frame)
-- [Primitives](./api-reference/primitives)
-- [Images and Masks](./api-reference/images)
-- [Widgets](./api-reference/widgets)
+Use the task reference pages instead. Start with [Plain GLua Quick Start](./guide/glua), [Lux Quick Start](./guide/lux), or [Core Concepts](./guide/concepts) if you are still learning the API shape.
+
+These pages are documentation groups, not module names; all listed functions are available through `MGFX.*` in GLua and `mgfx.api.*` in Lux.
+
+- [Frame and debug API](./api-reference/frame)
+- [Shapes and lines](./api-reference/primitives)
+- [Images and masks](./api-reference/images)
+- [HUD meters and sectors](./api-reference/widgets)
 - [Text API](./api-reference/text-api)
-- [Paint Records, Patterns, Transforms, and Capabilities](./api-reference/paint)
+- [Paint records, patterns, transforms, and capabilities](./api-reference/paint)

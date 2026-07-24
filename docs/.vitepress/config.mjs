@@ -267,19 +267,35 @@ function splitSearchSections(_file, html) {
 }
 
 const englishNav = [
-  { text: "Use", link: "/USAGE" },
-  { text: "API", link: "/API" },
-  { text: "Reference", link: "/api-reference/" },
+  {
+    text: "Get Started",
+    items: [
+      { text: "Plain GLua", link: "/guide/glua" },
+      { text: "Lux", link: "/guide/lux" },
+      { text: "Core Concepts", link: "/guide/concepts" },
+      { text: "Effects", link: "/guide/effects" },
+      { text: "Masks and Clip", link: "/guide/masks-and-clip" },
+    ],
+  },
+  { text: "API Reference", link: "/api-reference/" },
   { text: "Performance", link: "/PERFORMANCE" },
   { text: "Shaders", link: "/SHADERS" },
 ];
 
 const chineseNav = [
-  { text: "使用", link: "/zh/USAGE" },
-  { text: "API", link: "/zh/API" },
-  { text: "详细参考", link: "/zh/api-reference/" },
+  {
+    text: "开始使用",
+    items: [
+      { text: "普通 GLua", link: "/zh/guide/glua" },
+      { text: "Lux", link: "/zh/guide/lux" },
+      { text: "核心概念", link: "/zh/guide/concepts" },
+      { text: "特效指南", link: "/zh/guide/effects" },
+      { text: "Mask 与 Clip", link: "/zh/guide/masks-and-clip" },
+    ],
+  },
+  { text: "详细 API", link: "/zh/api-reference/" },
   { text: "性能", link: "/zh/PERFORMANCE" },
-  { text: "Shader", link: "/zh/SHADERS" },
+  { text: "Shader 与打包", link: "/zh/SHADERS" },
 ];
 
 const englishSidebar = [
@@ -287,8 +303,11 @@ const englishSidebar = [
     text: "Use MGFX",
     items: [
       { text: "Overview", link: "/" },
-      { text: "Use from Lux", link: "/USAGE" },
-      { text: "API Overview", link: "/API" },
+      { text: "Plain GLua Quick Start", link: "/guide/glua" },
+      { text: "Lux Quick Start", link: "/guide/lux" },
+      { text: "Core Concepts", link: "/guide/concepts" },
+      { text: "Effects", link: "/guide/effects" },
+      { text: "Masks and Antialiased Clip", link: "/guide/masks-and-clip" },
       {
         text: "Detailed API",
         collapsed: false,
@@ -329,8 +348,11 @@ const chineseSidebar = [
     text: "使用文档",
     items: [
       { text: "总览", link: "/zh/" },
-      { text: "在 Lux 中使用", link: "/zh/USAGE" },
-      { text: "API 总览", link: "/zh/API" },
+      { text: "普通 GLua 快速开始", link: "/zh/guide/glua" },
+      { text: "Lux 快速开始", link: "/zh/guide/lux" },
+      { text: "核心概念", link: "/zh/guide/concepts" },
+      { text: "特效指南", link: "/zh/guide/effects" },
+      { text: "Mask 与抗锯齿 Clip", link: "/zh/guide/masks-and-clip" },
       {
         text: "详细 API",
         collapsed: false,

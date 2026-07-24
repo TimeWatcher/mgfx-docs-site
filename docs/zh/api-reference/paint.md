@@ -4,7 +4,8 @@ Color/gradient paint record、程序化 pattern、2.5D transform helper 和 capa
 
 ## 适用边界
 
-- Linear、Radial、Conic、Ring/Sector radial、Shape/Ring/Arc/Sector angular 都支持 stop 表，并统一走 LUT。
+- Linear、Radial、Elliptical Radial、Conic、Ring/Sector radial、Shape/Ring/Arc/Sector angular 都支持 stop 表，并统一走 LUT。
+- 所有渐变都支持可选 `curve`，默认 `linear`；曲线在原有 shader 内映射 `t`，不增加 pass，也不复制 LUT。
 - Pattern 应作为 paint slot 交给 shader 数学化处理，不要在调用层展开成大量线段。
 - 2.5D 视觉倾斜使用 `style.transform`、`PushTransform` 或 `PointerTilt`，不新增 `ProjectedXXX` 图元族。
 
@@ -14,6 +15,7 @@ Color/gradient paint record、程序化 pattern、2.5D transform helper 和 capa
 - [LinearGradient](#lineargradient) - 创建两段或多段线性渐变记录。
 - [LinearGradientStops](#lineargradientstops) - 创建多段线性渐变记录。
 - [RadialGradient](#radialgradient) - 创建径向渐变绘制记录。
+- [EllipticalRadialGradient](#ellipticalradialgradient) - 创建具有独立横纵半径的椭圆径向渐变。
 - [RingRadialGradient](#ringradialgradient) - 创建从内边到外边的圆环局部径向渐变。
 - [SectorRadialGradient](#sectorradialgradient) - 创建从内边到外边的扇区局部径向渐变。
 - [ConicGradient](#conicgradient) - 使用公开角度制 rotation 创建锥形渐变记录。
@@ -23,6 +25,7 @@ Color/gradient paint record、程序化 pattern、2.5D transform helper 和 capa
 - [SectorAngularGradient](#sectorangulargradient) - 创建从 startDeg 到 endDeg 的扇区局部周向渐变。
 - [StripePattern](#stripepattern) - 创建程序化条纹图案记录。
 - [SmokePattern](#smokepattern) - 创建程序化烟雾/噪声图案记录。
+- [WornPattern](#wornpattern) - 创建程序化磨损材质图案记录。
 - [Transform](#transform) - 复制一个类似 CSS 的绘制变换记录，用作 style.transform。
 - [PointerTilt](#pointertilt) - 创建一个由指针位置驱动的 2.5D 倾斜变换。
 - [ProjectedQuad](#projectedquad) - 创建专家用投影四边形变换，而不是新增 ProjectedXXX 图元 API。
@@ -39,18 +42,22 @@ Color/gradient paint record、程序化 pattern、2.5D transform helper 和 capa
 | --- | --- | --- |
 | 纯色 | `Color(...)` 或 `MGFX.Solid(color)` | 大多数 `fill` 直接传 Color 就够了。 |
 | 左到右、上到下、斜向渐变 | `LinearGradient` / `LinearGradientStops` | 按钮、血条、列表选中态。 |
-| 中心光、暗角、局部高光 | `RadialGradient` | 卡片暗角、spotlight、hover 光。 |
+| 正圆中心光、暗角、局部高光 | `RadialGradient` | 卡片暗角、圆形 spotlight、hover 光。 |
+| 扁宽或纵长的定向光场 | `EllipticalRadialGradient` | 顶部发散高光、宽 HUD 光晕、椭圆暗角。 |
 | 完整圆盘角向色相 | `ConicGradient` | 色相盘、全圆仪表背景。 |
 | 圆环/扇区从内到外变色 | `RingRadialGradient` / `SectorRadialGradient` | Ring、Arc、Sector 的厚度方向渐变。 |
 | 圆环/扇区沿角度变色 | `ShapeAngularGradient` / `RingAngularGradient` / `ArcAngularGradient` / `SectorAngularGradient` | 冷却环、仪表弧、轮盘 wedge。 |
 | 斜线、扫描线 | `StripePattern` | HUD 装饰、分段条纹。 |
 | 程序化噪声/烟雾 | `SmokePattern` | 能量面板、稀有物品背景。 |
+| 细微磨损、颗粒、边缘破损、划痕 | `WornPattern` | 武器/背包/商店 UI、金属或旧纸材质表面。 |
 
-坐标是图元本地归一化空间，不是屏幕像素：`LinearGradient(0, 0, 1, 0, ...)` 表示从图元左到右；`RadialGradient(0.5, 0.5, 0.85, ...)` 表示以图元中心为圆心。
+坐标是图元本地归一化空间，不是屏幕像素：`LinearGradient(0, 0, 1, 0, ...)` 表示从图元左到右；`RadialGradient(0.5, 0.5, 0.85, ...)` 表示以图元中心为圆心；`EllipticalRadialGradient(0.5, 0, 0.7, 1.2, ...)` 表示从顶部中心发散，横向半径为图元宽度的 70%，纵向半径为图元高度的 120%。
 
 ## Stops 实用写法
 
-```lua
+::: code-group
+
+```lua [GLua]
 local coldToHot = {
     {0.00, Color(80, 170, 255)},
     {0.45, Color(90, 220, 180)},
@@ -60,6 +67,21 @@ local coldToHot = {
 
 local fill = MGFX.LinearGradient(0, 0, 1, 0, coldToHot)
 ```
+
+```lux [Lux]
+import * as mgfx from "@lux/mgfx"
+
+local coldToHot = {
+  {0.00, Color(80, 170, 255)},
+  {0.45, Color(90, 220, 180)},
+  {0.78, Color(255, 210, 110)},
+  {1.00, Color(255, 96, 78)},
+}
+
+local fill = mgfx.api.linearGradient(0, 0, 1, 0, coldToHot)
+```
+
+:::
 
 stop 支持三种常用写法，可以混用：
 
@@ -83,6 +105,23 @@ local vignette = MGFX.RadialGradient(0.5, 0.5, 0.9, {
 ```
 
 缺省 alpha 是 255。只写 `Color(0, 0, 0)` 会得到不透明黑色，不会得到透明 stop。
+
+## 渐变曲线
+
+所有渐变构造器都可以在最后传入 `curve`。固定预设包括：`linear`、`smoothstep`、`smootherstep`、`ease-in`、`ease-out`、`ease-in-out`、`exponential`、`gaussian` 和 `inverse-square`。
+
+`curve` 只由 Lua 映射为数字 ID。shader 在采样现有 stops LUT 之前执行 `t = curve(t)`，因此不会增加 draw pass；LUT 缓存仍只由 stops 决定。预设没有 `strength` 参数，需要更精细的美术控制时继续使用 stops。
+
+所有预设共享同一份 16-bit RGBA stops LUT。现有渐变 pixel shader 还会加入稳定的屏幕空间 IGN dithering，打散最终 8-bit framebuffer 的量化误差；两项改动都不增加 draw pass。
+
+`exponential` 使用归一化的固定 `k = 2.6`，适合用两个 stop 表达真实光源衰减：
+
+```lua
+local light = MGFX.EllipticalRadialGradient(0.5, 0.04, 0.55, 1.2, {
+    {0, Color(80, 220, 120, 73)},
+    {1, Color(80, 220, 120, 0)},
+}, nil, "exponential")
+```
 
 ## 常用 paint 配方
 
@@ -125,7 +164,7 @@ MGFX.RingEx(cx, cy, 36, 10, {
 
 `RingRadialGradient` 的 `t = 0` 在 inner edge，`t = 1` 在 outer edge。
 
-#### 条纹和烟雾图案
+#### 条纹、烟雾和磨损图案
 
 ```lua
 MGFX.RoundedBoxEx(x, y, w, h, {
@@ -152,7 +191,7 @@ MGFX.ChamferBoxEx(x, y, w, h, {
 })
 ```
 
-`StripePattern.spacing = 8..16`、`width = 1..3` 常用。`SmokePattern.scale = 90..180`、`density = 0.35..0.6`、`softness = 0.2..0.45` 比较稳。
+`StripePattern.spacing = 8..16`、`width = 1..3` 常用。`SmokePattern.scale = 90..180`、`density = 0.35..0.6`、`softness = 0.2..0.45` 比较稳。磨损材质使用 `WornPattern`，完整参数和示例见本页的 [WornPattern](#wornpattern)。
 
 ## 参数速查
 
@@ -167,6 +206,9 @@ MGFX.ChamferBoxEx(x, y, w, h, {
 | `SmokePattern.scale` | `90..180` | 越小纹理越细碎。 |
 | `SmokePattern.density` | `0.35..0.6` | 越大越明显。 |
 | `SmokePattern.softness` | `0.2..0.45` | 越大边缘越散。 |
+| `WornPattern.grain` | `0.35..0.90` | 细表面粗糙和对比破坏。 |
+| `WornPattern.scratches` | `0.12..0.55` | 稀疏短划痕；过高会变成随机线条。 |
+| `WornPattern.edge` | `0.25..0.85` | 破碎边缘磨损强度。 |
 
 ## 函数参考
 
@@ -203,7 +245,7 @@ MGFX.RoundedBoxEx(x, y, w, h, {radius = 8, fill = fill})
 ## LinearGradient
 
 ```lua
-MGFX.LinearGradient(x1, y1, x2, y2, colorA, colorB)
+MGFX.LinearGradient(x1, y1, x2, y2, colorA, colorB, curve)
 ```
 
 创建两段或多段线性渐变记录。
@@ -252,7 +294,7 @@ local fill = MGFX.LinearGradient(0, 0, 1, 0, Color(80, 170, 255), Color(90, 220,
 ## LinearGradientStops
 
 ```lua
-MGFX.LinearGradientStops(x1, y1, x2, y2, stops)
+MGFX.LinearGradientStops(x1, y1, x2, y2, stops, curve)
 ```
 
 创建多段线性渐变记录。
@@ -304,7 +346,7 @@ local fill = MGFX.LinearGradientStops(0, 0, 1, 0, {
 ## RadialGradient
 
 ```lua
-MGFX.RadialGradient(cx, cy, radius, colorA, colorB) / MGFX.RadialGradient(cx, cy, radius, stops)
+MGFX.RadialGradient(cx, cy, radius, colorA, colorB, curve) / MGFX.RadialGradient(cx, cy, radius, stops, curve)
 ```
 
 创建径向渐变绘制记录。
@@ -349,6 +391,24 @@ MGFX.RadialGradient(cx, cy, radius, colorA, colorB) / MGFX.RadialGradient(cx, cy
 
 ```lua
 local fill = MGFX.RadialGradient(0.5, 0.35, 0.8, Color(90, 220, 180, 220), Color(20, 24, 32, 200))
+```
+
+## EllipticalRadialGradient
+
+```lua
+MGFX.EllipticalRadialGradient(cx, cy, radiusX, radiusY, colorA, colorB, curve)
+MGFX.EllipticalRadialGradient(cx, cy, radiusX, radiusY, stops, curve)
+```
+
+创建具有独立横纵半径的椭圆径向渐变。`radiusX` 相对于图元宽度，`radiusY` 相对于图元高度；`cx/cy` 可以位于 `0..1` 外，因此可把中心放到顶部之外形成向下扩散的光场。
+
+它与 `RadialGradient` 复用同一个 radial shader、渐变 LUT、material 和 draw pass，不会额外增加一次绘制。区别只在距离场计算：旧 API 保持像素空间正圆，新 API 使用椭圆轴半径。
+
+```lua
+local topGlow = MGFX.EllipticalRadialGradient(0.5, -0.15, 0.72, 1.35, {
+    {0.00, Color(132, 255, 148, 224)},
+    {1.00, Color(18, 48, 30, 0)},
+}, nil, "exponential")
 ```
 
 ## RingRadialGradient
@@ -789,6 +849,85 @@ local smoke = MGFX.SmokePattern({
 })
 ```
 
+## WornPattern
+
+```lua
+MGFX.WornPattern(spec)
+```
+
+创建程序化磨损材质图案记录。它会在 shader 内生成轻微变暗/降对比、细表面粗糙、方向性细划痕、稀疏软磨痕和破碎边缘磨损，不使用 RT 或 data texture。
+
+#### 参数
+
+| 参数 | 说明 |
+| --- | --- |
+| spec.color / tint | 主磨损叠加颜色，通常使用低 alpha 深色或浅色。 |
+| spec.edgeColor / highlight | 边缘磨损高光色。 |
+| spec.fractal | 稀疏软磨痕强度。 |
+| spec.grain | 细表面粗糙强度。 |
+| spec.scratches / scratch | 方向性细划痕强度。 |
+| spec.edge / edgeWear | 破碎边缘磨损强度。 |
+| spec.scale | 软磨痕采样尺度，单位近似像素。 |
+| spec.grainScale | 细表面粗糙密度。 |
+| spec.scratchScale / scratchWidth | 划痕间距和宽度。 |
+| spec.edgeWidth | 边缘磨损带宽度，单位近似像素。 |
+| spec.angle | 划痕方向，单位度。 |
+| spec.softness / warp | softness 为兼容保留字段；warp 是轻微形变强度。 |
+| spec.offset / speed / seed | 采样偏移、动画速度和稳定随机种子。 |
+
+#### 用法说明
+
+- 放到 `style.pattern`、`fillPattern` 或 `trackPattern`。
+- 这是独立 pattern pass，不会走 `$c0..$c3` 的 `SetFloat` 参数上传。
+- UI 推荐低强度；如果 grain 和 scratches 都很高，会从“材质感”变成噪声。
+- WornPattern 不是烟雾、噪声或脏污贴图；边缘磨损应该是破碎窄带，不应该形成连续脏边框。
+
+#### 返回值
+
+kind = "worn" 的图案表。
+
+#### spec 字段
+
+| 字段 / 可接受值 | 默认值 | 推荐范围与作用 |
+| --- | --- | --- |
+| `color / tint`<br>Color。 | `Color(0,0,0,44)` | 主磨损层；alpha 常用 24..70。深色会降低明度和对比，浅色可用于暗色金属。 |
+| `edgeColor / highlight`<br>Color。 | `Color(218,208,184,78)` | 破碎边缘高光；alpha 常用 40..120，颜色应贴近材质，不建议纯白。 |
+| `fractal`<br>0..1。 | `0.44` | 推荐 0.20..0.70；稀疏软磨痕，不要调成烟雾斑块。 |
+| `grain`<br>0..1。 | `0.64` | 推荐 0.35..0.90；细表面粗糙和对比破坏，是“不要太光滑”的主要控制。 |
+| `scratches / scratch`<br>0..1。 | `0.30` | 推荐 0.12..0.55；稀疏短划痕，过高会变成随机手画线。 |
+| `edge / edgeWear`<br>0..1。 | `0.54` | 推荐 0.25..0.85；破碎边缘磨损。 |
+| `scale`<br>数字。 | `32` | 推荐 24..48；软磨痕尺度，越低越忙，越高越干净。 |
+| `grainScale`<br>数字。 | `5.6` | 推荐 3.5..7；越大粗糙细节越密。 |
+| `scratchScale`<br>数字。 | `26` | 推荐 18..36；划痕间距。 |
+| `scratchWidth`<br>数字。 | `0.045` | 推荐 0.03..0.07；划痕宽度。 |
+| `edgeWidth`<br>数字。 | `7` | 推荐 4..9；边缘磨损带宽度。 |
+| `angle`<br>角度。 | `-14` | 划痕方向。 |
+| `softness`<br>数字。 | `0.10` | 兼容保留字段；当前 worn 模型不依赖它作为主要控制。 |
+| `warp`<br>数字。 | `0.035` | 推荐 0..0.08；轻微扭曲纹理场。 |
+| `offset / speed`<br>数字。 | `0 / 0` | 采样偏移和动画速度。 |
+| `seed`<br>数字或字符串。 | `0` | 稳定变化种子；字符串会用 CRC 哈希。 |
+
+#### 示例
+
+```lua
+local worn = MGFX.WornPattern({
+    color = Color(0, 0, 0, 44),
+    edgeColor = Color(218, 208, 184, 78),
+    fractal = 0.44,
+    grain = 0.64,
+    scratches = 0.30,
+    edge = 0.54,
+    scale = 32,
+    grainScale = 5.6,
+    scratchScale = 26,
+    scratchWidth = 0.045,
+    edgeWidth = 7,
+    angle = -14,
+    warp = 0.035,
+    seed = "shop-card",
+})
+```
+
 ## Transform
 
 ```lua
@@ -1179,8 +1318,8 @@ MGFX.GetCapabilities(target)
 | `MGFX.TARGET.CIRCLE` | 形状 | circle | 与 rounded box 形状字段相同。 |
 | `MGFX.TARGET.CAPSULE` | 形状 | capsule | 与 rounded box 形状字段相同。 |
 | `MGFX.TARGET.CHAMFER_BOX` | 形状 | chamferBox | fill、stroke、strokeWidth、shadow、outerGlow、innerGlow、backdrop、pattern、cuts、transform |
-| `MGFX.TARGET.POLY` | 形状 | convexPoly | fill、stroke、strokeWidth、shadow、backdrop、pattern、transform |
-| `MGFX.TARGET.LINE` | 形状 | line | fill、color、width、radius、caps、noCaps、backdrop、transform |
+| `MGFX.TARGET.POLY` | 形状 | convexPoly | fill、stroke、strokeWidth、shadow、outerGlow、backdrop、pattern、transform |
+| `MGFX.TARGET.LINE` | 形状 | line | fill、color、width、radius、caps、noCaps、outerGlow、backdrop、transform |
 | `MGFX.TARGET.RING` | 形状 | ring | fill、color、stroke、strokeWidth、shadow、outerGlow、innerGlow、backdrop、pattern、transform |
 | `MGFX.TARGET.ARC` | 形状 | arc | 与 ring 字段相同。 |
 | `MGFX.TARGET.SECTOR` | 形状 | sector | fill、color、stroke、strokeWidth、shadow、outerGlow、innerGlow、backdrop、pattern、transform |
@@ -1228,8 +1367,8 @@ MGFX.Supports(target, key)
 | `MGFX.TARGET.CIRCLE` | 形状 | circle | 与 rounded box 形状字段相同。 |
 | `MGFX.TARGET.CAPSULE` | 形状 | capsule | 与 rounded box 形状字段相同。 |
 | `MGFX.TARGET.CHAMFER_BOX` | 形状 | chamferBox | fill、stroke、strokeWidth、shadow、outerGlow、innerGlow、backdrop、pattern、cuts、transform |
-| `MGFX.TARGET.POLY` | 形状 | convexPoly | fill、stroke、strokeWidth、shadow、backdrop、pattern、transform |
-| `MGFX.TARGET.LINE` | 形状 | line | fill、color、width、radius、caps、noCaps、backdrop、transform |
+| `MGFX.TARGET.POLY` | 形状 | convexPoly | fill、stroke、strokeWidth、shadow、outerGlow、backdrop、pattern、transform |
+| `MGFX.TARGET.LINE` | 形状 | line | fill、color、width、radius、caps、noCaps、outerGlow、backdrop、transform |
 | `MGFX.TARGET.RING` | 形状 | ring | fill、color、stroke、strokeWidth、shadow、outerGlow、innerGlow、backdrop、pattern、transform |
 | `MGFX.TARGET.ARC` | 形状 | arc | 与 ring 字段相同。 |
 | `MGFX.TARGET.SECTOR` | 形状 | sector | fill、color、stroke、strokeWidth、shadow、outerGlow、innerGlow、backdrop、pattern、transform |

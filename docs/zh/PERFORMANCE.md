@@ -5,11 +5,48 @@ MGFX 的性能目标不是“消灭 immediate”，而是在 immediate 心智模
 ## 当前方向
 
 - Shape 和 widget 保持 immediate shader/fallback path。
+- Public `NameEx(..., style)` 仍然接受表，但 renderer 内部必须在 API 边界展开为直接参数，不能一层层传 style 表再重复解析。
 - 只保留经过实测的专用 fused shader，不恢复通用 data-texture batch scheduler。
 - 常规 shape 参数优先通过 `$viewprojmat` / pixel shader `c11` 上传。
-- `$c0..$c3` 只作为 fused shader 的辅助参数页。
+- `$invviewprojmat` / pixel shader `c15` 作为辅助 16-float 参数页，`$c0..$c3` 只保留给兼容和诊断。
 - Pattern 在 shader 中数学化生成，不拆成大量 `LineEx` 或几何段。
 - Scoreboard、表格、聊天和普通 label 文本优先走原生 GMod text。
+
+## 当前实测基线
+
+当前代表性压力场景是复杂 shop UI：大量 rounded box、gradient、stroke、shadow、glow、image 和少量 text 混合绘制。关闭诊断后，实测结果为：
+
+```text
+满商品列表      稳定 130+ FPS
+商品较少分类    稳定 160+ FPS
+```
+
+这次提升来自减少 Lua 侧准备工作和无意义 pass，而不是恢复通用 batch scheduler。
+
+## Prepared 绘制层
+
+外部 API 可以继续使用 style table，因为这是 GLua/Lux 调用方最容易读写的形式。但内部绘制层不应该继续传递这些表。
+
+正确链路：
+
+```text
+public API style table
+  -> API 边界解析一次
+  -> prepared fill/stroke/effect scalar 参数
+  -> shader/fallback draw
+```
+
+应避免的链路：
+
+```text
+style table
+  -> helper table/spec
+  -> 转发 style table
+  -> 再次 normalization
+  -> shader/fallback draw
+```
+
+RoundedBox、Chamfer、Progress/Segment、Image round/chamfer、line-backed rect、poly/chamfer fallback 现在都走 prepared 参数。这样 public API 仍然易用，但 inner loop 不再重复调用 `shadowRaw`、`outerGlowRaw`、`innerGlowRaw`、`backdropStyle`、`patternStyle`、`fillFromStyle` 和 `fillVisible`。
 
 ## 参数上传
 
@@ -34,11 +71,21 @@ const float4x4 MGFXExtraParams : register(c11);
 
 注意 Source/GMod 的矩阵索引按列抵达 HLSL。Lua 端打包必须使用 MGFX 的统一 helper，不要在调用点自己猜行列顺序。
 
-`SetFloat("$cN_x", ...)` 仍然存在，但它是备用手段。只有一个 shader 已经用满 16 个主参数，并且为了视觉一致性确实需要同 pass 的额外数据时，才应该用 `$c0..$c3` 辅助页。
+辅助参数走 `$invviewprojmat`：
+
+```hlsl
+const float4x4 MGFXAuxParams : register(c15);
+```
+
+```lua
+mat:SetMatrix("$invviewprojmat", matrix)
+```
+
+`SetFloat("$cN_x", ...)` 仍然存在，但它是备用/诊断手段。只有已经确认 matrix 参数页无法满足需求，并且有实测理由时，才考虑逐 float 上传。
 
 ## Pattern 数学化
 
-Pattern 不应该在调用层展开成许多 line、box 或 polygon。`StripePattern` 和 `SmokePattern` 是 paint slot，应该由对应 shape shader 根据当前 shape local space 直接采样。
+Pattern 不应该在调用层展开成许多 line、box 或 polygon。`StripePattern`、`SmokePattern` 和 `WornPattern` 是 paint slot，应该由对应 shape shader 根据当前 shape local space 直接采样。
 
 正确方向：
 
@@ -80,9 +127,34 @@ end
 roundrect_fx   fill/stroke + innerGlow
 chamfer        fill/stroke + optional innerGlow
 ring_fx        fill/stroke + optional innerGlow
+roundrect_shadow_outer  shadow + outerGlow
+chamfer_shadow_outer    shadow + outerGlow
+ring_shadow_outer       shadow + outerGlow
+image_mask_shadow_outer shadow + outerGlow
 ```
 
-`outerGlow`、`backdrop`、`shadow` 和部分 `pattern` 仍可能是独立 pass，因为它们的 draw bounds、framebuffer read、blur source 或 blend order 是可见行为。
+`shadow` 和 `outerGlow` 在 API 语义上仍然分离；合成 pass 只用于能保持 CSS-like 结果一致的 shape。`backdrop`、convex poly 的 shadow/glow 和部分 `pattern` 仍可能是独立 pass，因为它们的 draw bounds、framebuffer read、参数页压力或 blend order 是可见行为。
+
+RoundedBox 还支持 `shadow = { {...}, {...} }` 多层阴影。它用于替代“为了多个阴影叠多次完整 `RoundedBoxEx`”的写法：style 只解析一次，每一层只走 shadow-only path，主体和其它效果仍然只画一次。
+
+## Backdrop 共享模糊
+
+Backdrop blur 按“引擎渲染帧 + `backdrop.level` 整数层”共享，不再由每个
+控件各自捕获 framebuffer。每层第一个非零 blur 捕获当时的 framebuffer，
+并完成横向、纵向两个全屏 pass；同层同强度的 shape 随后只做一次带遮罩采样。
+
+如果本帧有 `N` 个模糊 backdrop，且都没有显式 recapture，统计应为：
+
+```text
+captures     1
+reuses       N - 1
+blur passes  2
+```
+
+同层切换 blur 强度只会从该层的原始捕获重新执行两个模糊 pass，不再次复制
+framebuffer。提高 `backdrop.level` 会在该位置重新捕获，使高层能包含已经画出的
+低层 UI。只有同一 level 内也必须强制获取更新源时才设置
+`backdrop.recapture = true`；不要给每个卡片或列表行都设置 recapture。
 
 ## 分配规则
 

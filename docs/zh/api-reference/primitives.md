@@ -1,4 +1,4 @@
-# 基础图元
+# 形状与线条
 
 Rounded、Chamfer、常用凸多边形、Poly、Line、Circle、Capsule 以及通用 shape style 能力。
 
@@ -12,6 +12,7 @@ Rounded、Chamfer、常用凸多边形、Poly、Line、Circle、Capsule 以及�
 ## 本页 API
 
 - [RoundedBox](#roundedbox) - 高频路径圆角矩形 helper。
+- `RoundedBoxBackdrop` - backdrop-only 的 positional 热路径，不创建临时 style 表。
 - [RoundedBoxEx](#roundedboxex) - 表格式样式的高级圆角矩形。
 - [ChamferBox](#chamferbox) - 高频路径切角矩形 helper。
 - [ChamferBoxEx](#chamferboxex) - 使用 style.cuts 的高级切角矩形。
@@ -24,14 +25,72 @@ Rounded、Chamfer、常用凸多边形、Poly、Line、Circle、Capsule 以及�
 - [Poly](#poly) - 根据调用方传入的点绘制凸多边形。
 - [PolyEx](#polyex) - 带命名 style 字段的高级凸多边形。
 - [Line](#line) - 用简单 positional 签名绘制线段。
+- `LineNoCaps` - 不把端点向外延伸半个线宽的 positional 线段。
 - [LineEx](#lineex) - 带命名 width 与绘制字段的高级线条绘制。
 - [Circle](#circle) - 基于圆角盒覆盖的简单圆形 helper。
 - [CircleEx](#circleex) - 使用圆角矩形样式模型的高级圆形。
 - [Capsule](#capsule) - 简单胶囊矩形 helper。
 - [CapsuleEx](#capsuleex) - 使用圆角矩形样式模型的高级胶囊。
+- [style.stroke](#style-stroke) - 居中实线、点线、虚线和点划线描边。
 - [style.backdrop](#style-backdrop) - 由形状或图像遮罩裁剪的 framebuffer 模糊/染色效果。
 - [style.transform](#style-transform) - 用于形状、图像和组件 Ex 调用的绘制阶段视觉变换。
 - [Radial vignette fill](#radial-vignette-fill) - 暗角现在用普通透明径向渐变 fill 表达。
+
+## style.stroke
+
+shape 描边统一以轮廓为中心：一半宽度在形状内部，另一半在外部。旧写法
+`stroke = Color(...)` 配合 `strokeWidth` 保持兼容；需要点线、虚线或点划线时，
+把 `stroke` 写成 record：
+
+```lua
+MGFX.RoundedBoxEx(x, y, w, h, {
+    radius = 12,
+    fill = Color(18, 24, 32),
+    stroke = {
+        color = Color(90, 190, 255),
+        width = 3,
+        kind = "dot-dash",
+        length = 12,
+        gap = 6,
+        offset = 0,
+    },
+})
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `color` | 必填描边 Color；也接受别名 `tint`。 |
+| `width` | 像素宽度。兼容字段 `style.strokeWidth` 单独给出时优先。 |
+| `kind` | `"solid"`、`"dot"`、`"dash"` 或 `"dot-dash"`；默认 `"solid"`。 |
+| `length` | dash 可见长度，单位像素。 |
+| `gap` | dot 或 dash 之间的间距，单位像素。 |
+| `offset` | 图案相位，单位像素；每帧改变可得到流动效果。 |
+
+非 `solid` 描边走独立 stroke pass，不改变 fill、渐变、阴影、发光和 backdrop
+的原有路径。支持 RoundedBox、ChamferBox、Circle、Capsule、3..8 点凸多边形、
+ProgressBar、SegmentBar、Ring、Arc 和 Sector。未知 `kind` 会直接报错，不会静默
+退化为实线。
+
+## 编译与无分配热路径
+
+每帧重复使用同一效果时，可在初始化阶段编译并复用：
+
+```lua
+local backdrop = MGFX.CompileBackdrop({blur = 8, tint = Color(8, 16, 24, 90)})
+local style = MGFX.CompileStyle({
+    radius = 10,
+    fill = Color(18, 24, 32),
+    backdrop = backdrop,
+}, MGFX.TARGET.ROUNDED_BOX)
+
+MGFX.RoundedBoxEx(x, y, w, h, style)
+MGFX.RoundedBoxBackdrop(x, y, w, h, 10, backdrop)
+MGFX.LineNoCaps(x1, y1, x2, y2, 2, color)
+```
+
+`CompileStyle` 只做一次浅拷贝，并预规范化 backdrop 与 pattern 字段；调用方应把
+返回值视为只读并跨帧复用。`RoundedBoxBackdrop` 与 `LineNoCaps` 用于已有标量参数的
+高频路径，避免为一次绘制构造 style 表。
 
 ## 常用形状配方
 
@@ -39,17 +98,41 @@ Rounded、Chamfer、常用凸多边形、Poly、Line、Circle、Capsule 以及�
 
 #### 带真实投影的卡片
 
-```lua
+::: code-group
+
+```lua [GLua]
 MGFX.RoundedBoxEx(x, y, w, h, {
     radius = 10,
     fill = Color(20, 24, 32, 232),
     stroke = Color(255, 255, 255, 26),
     strokeWidth = "hairline",
-    shadow = {x = 0, y = 6, blur = 14, spread = 1, color = Color(0, 0, 0, 118), softness = 0.66},
+    shadow = {
+        {x = 0, y = 1, blur = 2, color = Color(0, 0, 0, 86)},
+        {x = 0, y = 6, blur = 14, spread = 1, color = Color(0, 0, 0, 118), softness = 0.66},
+    },
 })
 ```
 
+```lux [Lux]
+import * as mgfx from "@lux/mgfx"
+
+mgfx.api.roundedBoxEx(x, y, w, h, {
+  radius = 10,
+  fill = Color(20, 24, 32, 232),
+  stroke = Color(255, 255, 255, 26),
+  strokeWidth = "hairline",
+  shadow = {
+    {x = 0, y = 1, blur = 2, color = Color(0, 0, 0, 86)},
+    {x = 0, y = 6, blur = 14, spread = 1, color = Color(0, 0, 0, 118), softness = 0.66},
+  },
+});
+```
+
+:::
+
 小控件把 `shadow.y` 降到 `1..3`、`blur` 降到 `4..8`。大面板可以用 `y = 8..12`、`blur = 18..28`。
+
+`RoundedBoxEx.shadow` 支持数组形式，适合 CSS `box-shadow` 那样的多层阴影。这样比叠多个 `RoundedBoxEx` 更便宜：内部只循环 shadow-only path，不会重复 fill、stroke、backdrop、pattern 或 innerGlow。
 
 #### 只做毛玻璃，不做投影
 
@@ -120,6 +203,8 @@ MGFX.PolyEx(points, {
 
 `PolyEx` 的 contract 是 3..8 点凸多边形。凹多边形、星形、复杂路径需要先拆成多个凸片段。
 
+Rounded 和 Chamfer 的兼容 `shadow + outerGlow` 会走合成 shader pass。`shadow` 仍然是投影偏移，`outerGlow` 仍然是外部发光；合并只影响性能，不改变 API 语义。
+
 ## 效果参数速查
 
 | 字段 | 推荐范围 | 怎么调 |
@@ -180,7 +265,7 @@ MGFX.RoundedBoxEx(x, y, w, h, style)
 | style.fill | Color 或渐变填充。 |
 | style.stroke / strokeWidth | 可选描边。 |
 | style.shadow, innerGlow, outerGlow | 受支持路径上的可选特效。 |
-| style.pattern | StripePattern 或 SmokePattern 叠加。 |
+| style.pattern | StripePattern、SmokePattern 或 WornPattern 叠加。 |
 
 #### 用法说明
 
@@ -203,9 +288,9 @@ MGFX.RoundedBoxEx(x, y, w, h, style)
 | `stroke / strokeWidth`<br>Color 加数字、true、"hairline"、"thin" 或 "none" 宽度。 | `nil / 0` | 可选描边。 |
 | `shadow`<br>true、数字，或 {x/y、offsetX/offsetY、dx/dy、offset、blur/radius/size/width、spread/grow、color/tint、opacity/strength、softness/falloff}。 | `nil` | 外部软阴影；convex poly 使用多边形距离 shader。 |
 | `innerGlow`<br>true、Color，或 {color/tint, width/size, opacity/strength, softness/falloff}。 | `nil` | 内边缘发光。 |
-| `outerGlow`<br>true、Color，或 {x/y、offsetX/offsetY、color/tint、width/size/spread、opacity/strength、softness/falloff}。 | `nil` | 外发光；spread 会影响剔除和绘制范围。 |
+| `outerGlow`<br>true、Color，或 {x/y、offsetX/offsetY、color/tint、width/size/spread、opacity/strength、softness/falloff}。 | `nil` | 外发光；`x/y` 是方向偏置，不会像 shadow 那样移动发光源形状。 |
 | `backdrop`<br>true、数字、Color 或 {blur, tint, opacity}。 | `nil` | 按圆角形状裁剪的 framebuffer 模糊/染色层。 |
-| `pattern`<br>MGFX.StripePattern、MGFX.SmokePattern、true，或图案 spec 表。 | `nil` | 在支持的形状路径上叠加图案。 |
+| `pattern`<br>MGFX.StripePattern、MGFX.SmokePattern、MGFX.WornPattern、true，或图案 spec 表。 | `nil` | 在支持的形状路径上叠加图案。 |
 
 #### 支持目标与边界
 
@@ -277,7 +362,7 @@ MGFX.ChamferBoxEx(x, y, w, h, style)
 | --- | --- |
 | style.cuts | 数字或 {tl, tr, br, bl}。 |
 | style.fill | Color 或渐变填充。 |
-| style.pattern | 可选 StripePattern 或 SmokePattern。 |
+| style.pattern | 可选 StripePattern、SmokePattern 或 WornPattern。 |
 | style.innerGlow / outerGlow | 可选的切角感知发光效果。 |
 
 #### 用法说明
@@ -301,9 +386,9 @@ MGFX.ChamferBoxEx(x, y, w, h, style)
 | `stroke / strokeWidth`<br>Color 加描边宽度。 | `nil / 0` | 切角感知描边。 |
 | `shadow`<br>true、数字，或 {x/y、offsetX/offsetY、dx/dy、offset、blur/radius/size/width、spread/grow、color/tint、opacity/strength、softness/falloff}。 | `nil` | 外部软阴影。 |
 | `innerGlow`<br>true、Color，或 {color/tint, width/size, opacity/strength, softness/falloff}。 | `nil` | 内边缘发光。 |
-| `outerGlow`<br>true、Color，或 {x/y、offsetX/offsetY、color/tint、width/size/spread、opacity/strength、softness/falloff}。 | `nil` | 外发光；spread 会影响剔除和绘制范围。 |
+| `outerGlow`<br>true、Color，或 {x/y、offsetX/offsetY、color/tint、width/size/spread、opacity/strength、softness/falloff}。 | `nil` | 外发光；`x/y` 是方向偏置，不会像 shadow 那样移动发光源形状。 |
 | `backdrop`<br>true、数字、Color 或 {blur, tint, opacity}。 | `nil` | 按切角形状裁剪的 framebuffer 模糊/染色层。 |
-| `pattern`<br>StripePattern 或 SmokePattern。 | `nil` | 裁剪到切角多边形内的图案。 |
+| `pattern`<br>StripePattern、SmokePattern 或 WornPattern。 | `nil` | 裁剪到切角多边形内的图案。 |
 
 #### 支持目标与边界
 
@@ -355,7 +440,7 @@ MGFX.RegularPoly(cx, cy, 14, 6, 30, Color(80, 170, 255, 220))
 MGFX.RegularPolyEx(cx, cy, radius, sides, style)
 ```
 
-带 style 表的正多边形。内部走 `PolyEx`，所以 fill、stroke、shadow、backdrop、pattern 和 transform 语义一致。
+带 style 表的正多边形。内部走 `PolyEx`，所以 fill、stroke、shadow、outerGlow、backdrop、pattern 和 transform 语义一致。
 
 #### style 字段
 
@@ -364,7 +449,7 @@ MGFX.RegularPolyEx(cx, cy, radius, sides, style)
 | `rotation / angle`<br>角度，单位度。 | `-90` | 第一顶点方向；屏幕坐标中 `-90` 朝上，`0` 朝右。 |
 | `fill`<br>Color 或 MGFX 绘制记录。 | `color_white` | 主体填充。 |
 | `stroke / strokeWidth`<br>Color 加宽度。 | `nil / 0` | 边缘描边。 |
-| `shadow / backdrop / pattern / transform` | `nil` | 与 PolyEx 相同。 |
+| `shadow / outerGlow / backdrop / pattern / transform` | `nil` | 与 PolyEx 相同。 |
 
 #### 示例
 
@@ -510,6 +595,7 @@ MGFX.PolyEx(points, style)
 | points | 凸多边形点数组。 |
 | style.fill | Color 或渐变填充。 |
 | style.stroke / strokeWidth | 可选描边。 |
+| style.shadow / outerGlow | 基于凸多边形距离场的外部软阴影和外发光。 |
 | style.pattern | 受支持 shader 路径上的可选图案。 |
 
 #### 用法说明
@@ -532,8 +618,9 @@ MGFX.PolyEx(points, style)
 | `fill`<br>Color 或 MGFX 绘制记录。 | `color_white` | 多边形填充。 |
 | `stroke / strokeWidth`<br>Color 加宽度。 | `nil / 0` | 边缘描边。四点以内使用 shader 描边；回退路径绘制边线。 |
 | `shadow`<br>true、数字、Color，或 {x/y、offsetX/offsetY、dx/dy、offset、blur/radius/size/width、spread/grow、color/tint、opacity/strength、softness/falloff}。 | `nil` | 基于凸多边形距离场的外部软阴影；`x/y` 控制偏移，`spread/grow` 控制实体扩张，`blur` 控制软边宽度。 |
+| `outerGlow`<br>true、Color，或 {x/y、offsetX/offsetY、color/tint、width/size/spread、opacity/strength、softness/falloff}。 | `nil` | 基于凸多边形距离场的外发光；`x/y` 会把 glow 偏向一侧，但不会平移多边形轮廓。 |
 | `backdrop`<br>true、数字、Color 或 {blur, tint, opacity}。 | `nil` | 按多边形裁剪的 framebuffer 模糊/染色层。 |
-| `pattern`<br>StripePattern 或 SmokePattern。 | `nil` | 裁剪到多边形内的图案。 |
+| `pattern`<br>StripePattern、SmokePattern 或 WornPattern。 | `nil` | 裁剪到多边形内的图案。 |
 
 #### 支持目标与边界
 
@@ -552,6 +639,7 @@ MGFX.PolyEx(points, {
     fill = MGFX.LinearGradient(0, 0, 1, 1, Color(80, 170, 255), Color(90, 220, 180)),
     stroke = Color(255, 255, 255, 36),
     strokeWidth = 1,
+    outerGlow = {color = Color(80, 170, 255, 58), width = 12},
 })
 ```
 
@@ -597,7 +685,7 @@ MGFX.LineEx(x1, y1, x2, y2, style)
 | style.width | 线条厚度，单位像素。 |
 | style.fill | Color 或渐变。 |
 | style.noCaps | 设为 true 可避免斜线 quad 的延伸端点。 |
-| style.radius / outerGlow | 轴对齐特效线可选圆角矩形路径。 |
+| style.radius / outerGlow | 可选圆角矩形路径或线段四边形发光路径。 |
 
 #### 用法说明
 
@@ -611,9 +699,9 @@ MGFX.LineEx(x1, y1, x2, y2, style)
 | `width`<br>数字。 | `1` | 线宽，单位像素。 |
 | `fill / color`<br>Color 或 MGFX 绘制记录。 | `color_white` | 线段绘制。渐变会沿线段采样。 |
 | `noCaps`<br>布尔 true。 | `false` | 在四边形路径上移除圆头端帽。 |
-| `caps`<br>布尔兼容字段。 | `true` | 显式移除端帽请使用 noCaps。 |
+| `caps`<br>布尔兼容字段。 | `true` | 设为 false 等同于 `noCaps = true`。 |
 | `radius`<br>数字。 | `nil` | 轴对齐线段矩形可走圆角矩形渲染。 |
-| `outerGlow`<br>发光 spec 表。 | `nil` | 轴对齐线段使用矩形路径绘制发光。 |
+| `outerGlow`<br>发光 spec 表。 | `nil` | 轴对齐线段使用矩形路径，斜线使用线段四边形覆盖绘制发光。 |
 | `backdrop`<br>true、数字、Color 或表。 | `nil` | 按线段覆盖区域裁剪的 framebuffer 模糊/染色。 |
 
 #### 支持目标与边界
@@ -682,7 +770,7 @@ MGFX.CircleEx(cx, cy, radius, style)
 #### 用法说明
 
 - MGFX 会根据圆心和半径计算盒子，再应用圆形半径。
-- 圆形图片请使用带 MGFX.Mask("circle") 的 ImageEx。
+- 圆形图片请使用 `ImageEx(..., {mask = {kind = "circle"}})`；`MGFX.Mask(painter)` 属于多次绘制共享 coverage 的 Clip API。
 
 #### 示例
 
@@ -752,7 +840,7 @@ MGFX.CapsuleEx(x, y, w, 28, {
 ## style.backdrop
 
 ```lua
-style.backdrop = true | number | Color | {blur, tint, opacity}
+style.backdrop = true | number | Color | {blur, tint, opacity, level, recapture}
 ```
 
 由形状或图像遮罩裁剪的 framebuffer 模糊/染色效果。Backdrop 只影响形状内部覆盖范围，不是投影；需要 drop shadow 时使用 `style.shadow`。
@@ -764,12 +852,14 @@ style.backdrop = true | number | Color | {blur, tint, opacity}
 | true | 使用默认 blur = 4。 |
 | number | 数字值会作为 blur 强度。 |
 | Color | 只绘制按形状裁剪的 tint。 |
-| table | 支持 blur、tint/color、opacity/strength 和 padding/spread。 |
+| table | 支持 blur、tint/color、opacity/strength、padding/spread、整数 level 和显式 recapture。 |
 
 #### 用法说明
 
 - Backdrop 是 style 字段，不再是独立 primitive。
 - RoundedBoxEx、ChamferBoxEx、PolyEx、LineEx、RingEx、ArcEx、SectorEx、CircleEx、CapsuleEx 和 ImageEx 都会按自身覆盖区域裁剪它。
+- 每个引擎渲染帧按整数 `level` 分层捕获 framebuffer，并用横向、纵向两个全屏 pass 建立该层共享模糊源；同层同强度的后续 shape 只做一次带遮罩采样。
+- 提高 `level` 会在当前绘制位置捕获，使高层包含已经画出的低层 UI；同层切换强度只重跑模糊 pass。只有同层内也必须更新 framebuffer 源时才设置 `recapture = true`。
 
 #### style 字段
 
@@ -782,6 +872,8 @@ style.backdrop = true | number | Color | {blur, tint, opacity}
 | `tint / color`<br>Color。 | `transparent` | 覆盖在模糊区域上的颜色。 |
 | `opacity / strength`<br>0..1 数字。 | `1` | tint alpha 的乘数。 |
 | `padding / spread`<br>数字。 | `0` | 为形状 backdrop pass 预留的扩展提示。 |
+| `level`<br>整数。 | `0` | backdrop 捕获层；层变化时在当前绘制位置捕获 framebuffer。 |
+| `recapture`<br>布尔值。 | `false` | 在同一 level 内也强制重新捕获 framebuffer；后续同层 backdrop 复用新结果。 |
 
 #### 示例
 

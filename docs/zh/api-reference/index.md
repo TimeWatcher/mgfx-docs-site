@@ -1,25 +1,34 @@
 # 详细 API 参考
 
-这里是 MGFX public API 的逐函数参考。概念说明、推荐使用方式和整体设计边界请先看 [API 总览](../API.md)。
+这里是 MGFX public API 的逐函数参考，只负责准确签名、字段、返回值和边界条件。第一次使用请先看 [普通 GLua 快速开始](../guide/glua)、[Lux 快速开始](../guide/lux) 或 [核心概念](../guide/concepts)。
 
 API 名称、Lua 参数名和 shader 术语保留英文；解释性文本统一使用中文。
 
-这些页面按功能分组只是为了查阅方便，不代表 Lux 用户需要在 `paint`、`widgets`、
-`text`、`style` 之间找入口。Lux 代码统一调用 `mgfx.api.*`；普通 GLua 或旧 panel
-调用安装后的 `MGFX.*` facade。
+这些页面只是按绘制任务组织的文档分组，不是模块入口。普通 GLua 代码直接调用 `MGFX.*`，Lux 代码使用 `@lux/mgfx` 的 `mgfx.api.*`。
+
+## 运行时名称对照
+
+| 普通 GLua | Lux |
+| --- | --- |
+| `MGFX.StartPanel(...)` | `mgfx.api.startPanel(...)` |
+| `MGFX.RoundedBoxEx(...)` | `mgfx.api.roundedBoxEx(...)` |
+| `MGFX.ImageEx(...)` | `mgfx.api.imageEx(...)` |
+| `MGFX.ProgressBarEx(...)` | `mgfx.api.progressBarEx(...)` |
+| `MGFX.LinearGradient(...)` | `mgfx.api.linearGradient(...)` |
+| `MGFX.TextEx(...)` | `mgfx.api.textEx(...)` |
 
 ## 按需求选择
 
 | 你要做什么 | 先看哪里 | 直接可用的入口 |
 | --- | --- | --- |
-| 面板、按钮、徽章、箭头、凸多边形 | [基础图元](./primitives) | `roundedBoxEx` / `RoundedBoxEx`、`regularPolyEx` / `RegularPolyEx`、`polyEx` / `PolyEx` |
-| 头像、图标、裁切、圆形/切角/纹理遮罩 | [图像与遮罩](./images) | `imageEx` / `ImageEx`、`iconEx` / `IconEx`、`mask` / `Mask` |
-| 血条、弹药格、圆环、仪表、轮盘扇区 | [组件图元](./widgets) | `progressBarEx` / `ProgressBarEx`、`ringEx` / `RingEx`、`sectorEx` / `SectorEx` |
-| 普通文字、描边文字、glow 标题、多行文本框 | [文本 API](./text-api) | `text` / `Text`、`textEx` / `TextEx`、`textBoxEx` / `TextBoxEx`、`measureTextBox` / `MeasureTextBox` |
-| 线性/径向/角向渐变、stops、pattern、2.5D transform | [绘制记录、图案、变换与能力](./paint) | `linearGradient` / `LinearGradient`、`sectorAngularGradient` / `SectorAngularGradient`、`pointerTilt` / `PointerTilt` |
-| VGUI Paint / HUDPaint 中的 MGFX 生命周期 | [帧作用域与调试](./frame) | `startPanel` / `StartPanel`、`startScreen` / `StartScreen`、`pushClip` / `PushClip` |
+| 面板、按钮、徽章、箭头、凸多边形 | [形状与线条](./primitives) | `RoundedBoxEx`、`ChamferBoxEx`、`RegularPolyEx`、`DiamondEx`、`CaretEx`、`PolyEx` |
+| 头像、图标、裁切、圆形/切角/纹理遮罩 | [图像与遮罩](./images) | `ImageEx`、`IconEx`、`Mask` |
+| 血条、弹药格、圆环、仪表、轮盘扇区 | [HUD 数值组件与扇区](./widgets) | `ProgressBarEx`、`SegmentBarEx`、`RingEx`、`ArcEx`、`SectorEx` |
+| 普通文字、描边文字、glow 标题、多行文本框 | [文本 API](./text-api) | `Text`、`TextEx`、`TextBoxEx`、`MeasureTextBox` |
+| 线性/圆形与椭圆径向/角向渐变、stops、pattern、2.5D transform | [绘制记录、图案、变换与能力](./paint) | `LinearGradient`、`RadialGradient`、`EllipticalRadialGradient`、`SectorAngularGradient`、`StripePattern`、`WornPattern`、`PointerTilt` |
+| VGUI Paint / HUDPaint 中的 MGFX 生命周期 | [帧作用域与调试](./frame) | `StartPanel`、`StartScreen`、`PushClip`、`Mask`、`Clip`、`DebugOverlay` |
 
-如果只是要一个普通控件，优先用短签名或对应的 `Ex` style 表。不要为了“统一”再包一层复杂 helper；GLua 用户更容易接受直接、明确的调用。
+如果只是要一个普通控件，优先用短签名或对应的 `Ex` style 表。
 
 ## 分组入口
 
@@ -31,7 +40,7 @@ API 名称、Lua 参数名和 shader 术语保留英文；解释性文本统一�
   </a>
   <a href="./primitives">
     <span>Shape</span>
-    <strong>基础图元</strong>
+    <strong>形状与线条</strong>
     <small>Rounded、Chamfer、RegularPoly、Diamond、Caret、Poly、Line、Circle、Capsule 以及通用 shape style 能力。</small>
   </a>
   <a href="./images">
@@ -40,8 +49,8 @@ API 名称、Lua 参数名和 shader 术语保留英文；解释性文本统一�
     <small>图像、图标、fit/crop/uv、shape mask、texture mask 和 image-specific glow/backdrop。</small>
   </a>
   <a href="./widgets">
-    <span>Widget</span>
-    <strong>组件图元</strong>
+    <span>Meter</span>
+    <strong>HUD 数值组件与扇区</strong>
     <small>ProgressBar、SegmentBar、Ring、Arc、Sector 这些 renderer-level widget。</small>
   </a>
   <a href="./text-api">
@@ -58,15 +67,16 @@ API 名称、Lua 参数名和 shader 术语保留英文；解释性文本统一�
 
 ## 阅读顺序
 
-- 新代码先看 [API 总览](../API.md)，确认 MGFX 的边界和通用 style 写法。
-- 查具体签名、字段、默认值和示例时，再进入对应分组页。
-- 改 public API 时，同步更新概念页和详细分组页；不要只改 demo 或注释。
+1. 选择 [普通 GLua](../guide/glua) 或 [Lux](../guide/lux)。
+2. 阅读 [核心概念](../guide/concepts)。
+3. 根据绘制任务进入对应参考页。
+4. 改热路径时再看 [性能模型](../PERFORMANCE)，改 shader 参数或 shaderpack 时看 [Shader 与打包](../SHADERS)。
 
-## 分组说明
+## 任务页说明
 
 - **帧作用域与调试**：管理 MGFX 绘制帧、矩形裁剪和调试叠层。所有坐标都相对于当前 active frame。
-- **基础图元**：Rounded、Chamfer、RegularPoly、Diamond、Caret、Poly、Line、Circle、Capsule 以及通用 shape style 能力。
+- **形状与线条**：Rounded、Chamfer、RegularPoly、Diamond、Caret、Poly、Line、Circle、Capsule 以及通用 shape style 能力。
 - **图像与遮罩**：图像、图标、fit/crop/uv、shape mask、texture mask 和 image-specific glow/backdrop。
-- **组件图元**：ProgressBar、SegmentBar、Ring、Arc、Sector 这些 renderer-level widget。
+- **HUD 数值组件与扇区**：ProgressBar、SegmentBar、Ring、Arc、Sector 这些 renderer-level immediate helper。
 - **文本 API**：字体别名、文本样式、测量、预热、原生文本路径和 shader text effects。
 - **绘制记录、图案、变换与能力**：Color/gradient paint record、程序化 pattern、2.5D transform helper 和 capability query。

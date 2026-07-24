@@ -1,147 +1,96 @@
 # Images and Masks
 
-Image functions draw materials, icons, rounded avatars, chamfered images, and
-texture-masked content.
+Image APIs draw materials, render targets, texture sources, and icons with optional fit, crop, mask, stroke, shadow, backdrop, and glow.
 
-Facade aliases: `MGFX.Image`, `MGFX.ImageEx`, `MGFX.Icon`, `MGFX.IconEx`,
-`MGFX.Mask`.
+Plain GLua calls `MGFX.*`. Lux calls the same APIs as lowerCamelCase methods on `mgfx.api`.
 
-## Scope
+## Functions
 
-- Use `image` for straightforward texture drawing.
-- Use `imageEx` when you need layout, masks, fill/background, stroke, glow, or
-  backdrop.
-- Circular avatars, chamfered avatars, and texture masks are expressed through
-  `style.mask = mgfx.api.mask(...)`.
+```lua
+MGFX.Image(x, y, w, h, source, radius, tint)
+MGFX.ImageUV(x, y, w, h, source, u0, v0, u1, v1, tint)
+MGFX.ImageEx(x, y, w, h, source, style)
 
-## This Page
+MGFX.Icon(x, y, w, h, source, tint)
+MGFX.IconEx(x, y, w, h, source, style)
 
-- [image](#image) - Simple image helper with optional radius and tint.
-- [imageEx](#imageex) - Advanced image drawing path with layout, mask, and effects.
-- [icon](#icon) - Simple icon helper with contain-style behavior.
-- [iconEx](#iconex) - Advanced icon path using image-style fields.
-- [mask](#mask) - Create an explicit image mask record.
-
-## Function Reference
-
-## image
-
-```lux
-mgfx.api.image(x, y, w, h, source, radius = nil, tint = nil)
 ```
 
-Simple image helper.
+`ImageUV` is the allocation-free positional path for an already-known UV
+rectangle. It intentionally skips fit, crop, masks, and effect-style parsing.
 
-| Parameter | Description |
+## Image Style Fields
+
+| Field | Meaning |
 | --- | --- |
-| `source` | Material path string, IMaterial-like object, or texture-like object. |
-| `radius` | Optional rounded radius. |
-| `tint` | Optional `Color` tint. |
+| `fit` / `objectFit` | `"cover"`, `"contain"`, `"fill"`, or `"stretch"`. |
+| `position` | Alignment for fitted content. |
+| `crop` | Crop rectangle or crop table. |
+| `uv` | Explicit UV rectangle. |
+| `mask` | Image-mask record such as `{kind = "circle"}`, string alias, `false`, or `"none"`. |
+| `radius` | Rounded mask radius for rounded image paths. |
+| `tint` / `color` / `alpha` | Image tint and opacity. |
+| `fill` / `background` | Background paint behind the image. |
+| `stroke` / `strokeWidth` | Optional image border. |
+| `shadow` | Mask-aware external soft shadow. |
+| `outerGlow` | Mask-aware external glow. |
+| `backdrop` | Mask-aware framebuffer blur/tint. |
+| `transform` | Visual-only transform. |
 
-Use `imageEx` for fit, crop, UVs, masks, backgrounds, strokes, glow, or
-backdrop.
+## Fit Examples
 
-## imageEx
+::: code-group
 
-```lux
-mgfx.api.imageEx(x, y, w, h, source, style)
+```lua [GLua]
+MGFX.ImageEx(x, y, 96, 96, avatarMaterial, {
+    fit = "cover",
+    mask = {kind = "chamfer", cuts = 12},
+    stroke = Color(80, 190, 255, 120),
+    strokeWidth = 1,
+})
 ```
 
-Advanced image path.
+```lux [Lux]
+import * as mgfx from "@lux/mgfx"
 
-#### Layout Fields
+local draw = mgfx.api
 
-| Field | Description |
-| --- | --- |
-| `fit / objectFit` | `"fill"`, `"stretch"`, `"cover"`, or `"contain"`. |
-| `position` | `{x, y}`, `{number, number}`, or alignment fields. |
-| `crop` | `{x, y, w, h}`, optionally with `pixels = true`. |
-| `uv` | `{u0, v0, u1, v1}` or equivalent coordinate fields. |
-| `radius` | Number, `true`, `"circle"`, percentage string, or px string. |
-| `mask` | Mask record, string alias, `false`, or `"none"`. |
-
-#### Visual Fields
-
-| Field | Description |
-| --- | --- |
-| `tint / color` | Multiplies source image color. |
-| `alpha` | Extra opacity multiplier, either `0..1` or `0..255`. |
-| `fill / background` | Optional background behind transparent or masked pixels. |
-| `stroke / strokeWidth` | Optional mask-aware stroke when supported. |
-| `shadow` | Drop shadow spec. |
-| `outerGlow` | Image or mask-aware outer glow. |
-| `backdrop` | Framebuffer blur/tint clipped by the image or mask. |
-
-#### Example
-
-```lux
-mgfx.api.imageEx(x, y, 72, 72, avatarMat, {
+draw.imageEx(x, y, 96, 96, avatarMaterial, {
   fit = "cover",
-  mask = mgfx.api.mask("circle"),
-  outerGlow = { color = Color(80, 170, 255, 70), width = 14 },
+  mask = {kind = "chamfer", cuts = 12},
+  stroke = Color(80, 190, 255, 120),
+  strokeWidth = 1,
+});
+```
+
+:::
+
+Use `cover` for avatars and `contain` for icons or item art that must remain fully visible.
+
+## Masks
+
+```lua
+{kind = "rounded", radius = 8}
+{kind = "chamfer", cuts = {12, 4, 12, 4}}
+{kind = "circle"}
+{kind = "capsule"}
+```
+
+Texture masks can use alpha or color channels depending on the source. Prefer procedural masks for common rounded/chamfer/circle/capsule cases.
+
+These records belong to one `ImageEx` draw. They are intentionally different from reusable `MGFX.Mask(painter)` coverage objects used by [`MGFX.Clip`](../guide/masks-and-clip).
+
+Mask-aware `shadow` and `outerGlow` can share one fused shader pass. `backdrop` still samples and tints only the content behind the image or mask coverage.
+
+## Icons
+
+`IconEx` is the image path tuned for icon usage. It usually uses `contain`-style behavior and tinting.
+
+```lua
+MGFX.IconEx(x, y, 32, 32, material, {
+    tint = Color(220, 245, 255),
+    outerGlow = {color = Color(80, 190, 255, 70), width = 8},
 })
 ```
 
-## icon
-
-```lux
-mgfx.api.icon(x, y, w, h, source, tint = nil)
-```
-
-Simple icon helper. It is intended for small glyph-like images and defaults to
-aspect-preserving layout through the icon path.
-
-## iconEx
-
-```lux
-mgfx.api.iconEx(x, y, w, h, source, style)
-```
-
-Advanced icon path. It uses image-style fields but defaults to icon-friendly
-layout.
-
-## mask
-
-```lux
-mgfx.api.mask(kind, spec = nil)
-```
-
-Creates an explicit mask record for `imageEx` and `iconEx`.
-
-#### Kinds
-
-| Kind | Main Fields | Result |
-| --- | --- | --- |
-| `"rounded"` | `radius` | Rounded image coverage. Aliases: `round`, `roundedbox`, `roundrect`. |
-| `"chamfer"` | `cuts` | Chamfered image coverage. Alias: `bevel`. |
-| `"circle"` | none | Circle coverage based on the shorter side. |
-| `"capsule"` | none | Capsule coverage along the longer axis. Alias: `pill`. |
-| `"texture"` | `source`, `channel`, `invert`, `uv`, `crop` | Use a second texture as coverage. Aliases: `alpha`, `image`. |
-| `false / "none"` | none | Disable mask when used as `style.mask`. |
-
-#### Texture Mask Fields
-
-| Field | Description |
-| --- | --- |
-| `source / material / texture / image` | Mask texture source. |
-| `channel` | `"a"`, `"r"`, `"g"`, `"b"`, or `"luma"`. Defaults to `"a"`. |
-| `invert / inverse` | Invert mask coverage. |
-| `uv` | Mask texture UV rectangle. |
-| `crop` | Alternate source rectangle form. |
-
-#### Example
-
-```lux
-local textureMask = mgfx.api.mask("texture", {
-  source = maskMaterial,
-  channel = "a",
-  invert = false,
-})
-
-mgfx.api.imageEx(x, y, w, h, source, {
-  mask = textureMask,
-  fit = "cover",
-})
-```
-
-[Back to detailed API index](./index)
+[Back to API Reference](./index)

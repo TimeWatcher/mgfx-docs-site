@@ -1,295 +1,241 @@
 # Paint, Patterns, Transforms, and Capabilities
 
-Paint helpers create explicit records for colors, gradients, procedural
-patterns, visual transforms, and capability queries.
+Paint helpers create records consumed by shape, image, widget, and text style fields.
 
-Facade aliases include `MGFX.Solid`, `MGFX.LinearGradient`,
-`MGFX.LinearGradientStops`, `MGFX.RadialGradient`, `MGFX.ConicGradient`,
-`MGFX.RingRadialGradient`, `MGFX.SectorRadialGradient`,
-`MGFX.ShapeAngularGradient`, `MGFX.RingAngularGradient`,
-`MGFX.ArcAngularGradient`, `MGFX.SectorAngularGradient`,
-`MGFX.StripePattern`, `MGFX.SmokePattern`, `MGFX.Transform`,
-`MGFX.PointerTilt`, `MGFX.ProjectedQuad`, `MGFX.PushTransform`,
-`MGFX.PopTransform`, `MGFX.TransformPoint`, `MGFX.UntransformPoint`,
-`MGFX.GetCapabilities`, and `MGFX.Supports`.
+Plain GLua calls `MGFX.*`. Lux calls the same helpers as lowerCamelCase methods on `mgfx.api`.
 
-## Scope
+## Paint Functions
 
-- Linear, radial, conic, ring/sector radial, and shape/ring/arc/sector angular
-  gradients all support stop tables through the same LUT pipeline.
-- Patterns are shader paint slots; do not expand them into many line draws.
-- 2.5D visual tilt uses `style.transform`, `pushTransform`, or `pointerTilt`.
-  Do not add primitive-specific `ProjectedXXX` APIs.
+```lua
+MGFX.Solid(color)
 
-## This Page
+MGFX.LinearGradient(x1, y1, x2, y2, colorA, colorB, curve)
+MGFX.LinearGradientStops(x1, y1, x2, y2, stops, curve)
 
-- [solid](#solid)
-- [linearGradient](#lineargradient)
-- [linearGradientStops](#lineargradientstops)
-- [radialGradient](#radialgradient)
-- [ringRadialGradient](#ringradialgradient)
-- [sectorRadialGradient](#sectorradialgradient)
-- [conicGradient](#conicgradient)
-- [shapeAngularGradient](#shapeangulargradient)
-- [ringAngularGradient](#ringangulargradient)
-- [arcAngularGradient](#arcangulargradient)
-- [sectorAngularGradient](#sectorangulargradient)
-- [stripePattern](#stripepattern)
-- [smokePattern](#smokepattern)
-- [transform](#transform)
-- [pointerTilt](#pointertilt)
-- [projectedQuad](#projectedquad)
-- [pushTransform](#pushtransform)
-- [popTransform](#poptransform)
-- [transformPoint](#transformpoint)
-- [untransformPoint](#untransformpoint)
-- [get](#get)
-- [supports](#supports)
+MGFX.RadialGradient(cx, cy, radius, colorA, colorB, curve)
+MGFX.EllipticalRadialGradient(cx, cy, radiusX, radiusY, colorA, colorB, curve)
+MGFX.ConicGradient(cx, cy, rotationDeg, stops, curve)
 
-## Function Reference
-
-## solid
-
-```lux
-mgfx.api.solid(color)
+MGFX.ShapeAngularGradient(stops, rotationDeg)
+MGFX.RingRadialGradient(stops)
+MGFX.RingAngularGradient(stops, rotationDeg)
+MGFX.SectorRadialGradient(stops)
+MGFX.SectorAngularGradient(stops, rotationDeg)
 ```
 
-Creates a solid paint record. Most APIs also accept `Color` directly; `solid`
-is useful when you want an explicit paint record.
+`RadialGradient` keeps a true circle in pixel space and measures `radius`
+against the primitive's shorter side. `EllipticalRadialGradient` uses
+independent local-axis radii: `radiusX = 0.5` reaches half the primitive width,
+and `radiusY = 1` reaches one full primitive height. Centers may sit outside the
+primitive, so `cy <= 0` is useful for a top-origin spotlight. Both APIs reuse the
+same radial shader, LUT, material, and draw pass.
 
-## linearGradient
-
-```lux
-mgfx.api.linearGradient(x1, y1, x2, y2, colorA, colorB)
-mgfx.api.linearGradient(x1, y1, x2, y2, stops)
+```lua
+local topGlow = MGFX.EllipticalRadialGradient(0.5, -0.15, 0.72, 1.35, {
+    {0.00, Color(132, 255, 148, 224)},
+    {1.00, Color(18, 48, 30, 0)},
+}, nil, "exponential")
 ```
 
-Creates a linear gradient in primitive-local normalized space. Passing a stop
-table is equivalent to `linearGradientStops`.
+Stops can use compact or named forms:
 
-## linearGradientStops
+::: code-group
 
-```lux
-mgfx.api.linearGradientStops(x1, y1, x2, y2, stops)
+```lua [GLua]
+local fill = MGFX.LinearGradientStops(0, 0, 1, 0, {
+    {0.00, Color(80, 170, 255)},
+    {pos = 0.55, color = Color(90, 220, 180)},
+    {offset = 1.00, color = Color(255, 210, 90)},
+})
 ```
 
-Creates a multi-stop linear gradient. Stops are sorted and completed at `0` and
-`1` when needed.
+```lux [Lux]
+import * as mgfx from "@lux/mgfx"
 
-Stop forms:
+local draw = mgfx.api
 
-```lux
-local stops = {
-  Color(80, 170, 255),
-  {0.35, Color(90, 220, 180)},
-  {pos = 0.70, color = Color(255, 210, 110)},
-  {offset = 1, color = Color(255, 96, 78, 0)},
-}
+local fill = draw.linearGradientStops(0, 0, 1, 0, {
+  {0.00, Color(80, 170, 255)},
+  {pos = 0.55, color = Color(90, 220, 180)},
+  {offset = 1.00, color = Color(255, 210, 90)},
+})
 ```
 
-## radialGradient
+:::
 
-```lux
-mgfx.api.radialGradient(cx, cy, radius, colorA, colorB)
-mgfx.api.radialGradient(cx, cy, radius, stops)
-```
+## Gradient Curves
 
-Creates a radial gradient record. The shader path samples the shared gradient
-LUT after computing radial `t`.
+Every gradient constructor accepts an optional final `curve` argument. The
+default is `"linear"`. Curves remap the normalized gradient coordinate in the
+existing pixel shader before it samples the stops LUT, so they add no draw pass
+and do not create curve-specific LUT textures.
 
-## ringRadialGradient
-
-```lux
-mgfx.api.ringRadialGradient(stopsOrColorA, colorB = nil)
-```
-
-Creates a ring-local radial gradient. In ring/arc/sector shaders:
-
-```text
-t = (r - innerRadius) / (outerRadius - innerRadius)
-```
-
-## sectorRadialGradient
-
-```lux
-mgfx.api.sectorRadialGradient(stopsOrColorA, colorB = nil)
-```
-
-Creates a sector-local radial gradient using the same local radial space as
-`ringRadialGradient`.
-
-## conicGradient
-
-```lux
-mgfx.api.conicGradient(cx, cy, rotationDeg, colorA, colorB)
-mgfx.api.conicGradient(cx, cy, rotationDeg, stops)
-```
-
-Creates a full 360-degree angular gradient around the normalized center. This
-is not the same as shape-local angular gradients used by arc/sector spans.
-
-## shapeAngularGradient
-
-```lux
-mgfx.api.shapeAngularGradient(stopsOrColorA, colorB = nil, rotation = nil)
-```
-
-Creates a local angular gradient over the current ring/arc/sector angular
-range.
-
-## ringAngularGradient
-
-```lux
-mgfx.api.ringAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
-```
-
-Alias for ring-local angular paint.
-
-## arcAngularGradient
-
-```lux
-mgfx.api.arcAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
-```
-
-Creates an angular gradient over `startDeg..endDeg` for arc drawing.
-
-## sectorAngularGradient
-
-```lux
-mgfx.api.sectorAngularGradient(stopsOrColorA, colorB = nil, rotation = 0)
-```
-
-Creates an angular gradient over `startDeg..endDeg` for sector drawing.
-
-## stripePattern
-
-```lux
-mgfx.api.stripePattern(color, spacing = 12, width = 2, angle = 135, offset = 0)
-```
-
-Creates a procedural stripe pattern record. Use it as `style.pattern`,
-`trackPattern`, or `fillPattern` rather than drawing many individual lines.
-
-## smokePattern
-
-```lux
-mgfx.api.smokePattern(color, scale = 140, density = 0.48, softness = 0.3, angle = 135, offset = 0, seed = 0)
-```
-
-Creates a procedural smoke/noise pattern record.
-
-## transform
-
-```lux
-mgfx.api.transform(spec = nil)
-```
-
-Copies a CSS-like draw transform record for use as `style.transform`.
-
-Common fields:
-
-| Field | Description |
+| Curve | Intended profile |
 | --- | --- |
-| `origin` | `"50% 50%"`, `{x, y}`, or equivalent. |
-| `perspective` | Perspective distance. |
-| `rotateX / rotateY / rotate` | Rotation in degrees. |
-| `scale` | Uniform scale or scale record. |
-| `translate` | Visual translation. |
-| `skewX / skewY` | Skew in degrees. |
-| `steps` | Quad subdivision steps for projected drawing. |
+| `linear` | Unmodified interpolation. |
+| `smoothstep` | Soft start and end. |
+| `smootherstep` | Flatter, smoother endpoints. |
+| `ease-in` | Quadratic slow start. |
+| `ease-out` | Quadratic slow finish. |
+| `ease-in-out` | Symmetric quadratic easing. |
+| `exponential` | Normalized `k = 2.6` light falloff; useful for two-stop glows. |
+| `gaussian` | Normalized bell-like falloff. |
+| `inverse-square` | Normalized inverse-square-inspired attenuation. |
 
-## pointerTilt
+The presets are fixed and intentionally have no `strength` parameter. Use
+stops when a design needs art-directed changes beyond a preset profile.
 
-```lux
-mgfx.api.pointerTilt(x, y, spec = nil)
+All presets use the same packed 16-bit RGBA stops LUT. Stable screen-space IGN
+dithering is applied in the existing gradient pixel shader to disperse the
+final 8-bit framebuffer quantization; neither feature adds a draw pass.
+
+```lua
+local light = MGFX.EllipticalRadialGradient(0.5, 0.04, 0.55, 1.2, {
+    {0, Color(80, 220, 120, 73)},
+    {1, Color(80, 220, 120, 0)},
+}, nil, "exponential")
 ```
 
-Creates a pointer-driven 2.5D transform record. It is useful for panels, wheel
-items, and cards that visually tilt toward the mouse.
+## Patterns
 
-## projectedQuad
+```lua
+MGFX.StripePattern({
+    color = Color(255, 255, 255, 18),
+    spacing = 10,
+    width = 2,
+    angle = 135,
+})
 
-```lux
-mgfx.api.projectedQuad(spec = nil)
+MGFX.SmokePattern({
+    color = Color(80, 170, 255, 24),
+    scale = 140,
+    density = 0.45,
+    softness = 0.32,
+    seed = "panel",
+})
+
+MGFX.WornPattern({
+    color = Color(0, 0, 0, 44),
+    edgeColor = Color(218, 208, 184, 78),
+    fractal = 0.44,
+    grain = 0.64,
+    scratches = 0.30,
+    edge = 0.54,
+    scale = 32,
+    grainScale = 5.6,
+    scratchScale = 26,
+    scratchWidth = 0.045,
+    edgeWidth = 7,
+    angle = -14,
+    warp = 0.035,
+    seed = "shop-card",
+})
 ```
 
-Creates an expert projected-quad transform. Prefer `pointerTilt` or
-`transform` for normal UI work.
+Patterns should be passed as `style.pattern`, `fillPattern`, or `trackPattern`. Do not emulate stripes, smoke, or worn surface texture with many primitive calls.
 
-## pushTransform
+`WornPattern` is a shader-native surface pass. It combines subtle dulling, fine roughness, directional hairline scratches, sparse soft scuffs, and broken edge wear without using render targets or data textures. It uses matrix parameter pages (`c11` and `c15`) and intentionally avoids `$c0..$c3` float uploads.
 
-```lux
-mgfx.api.pushTransform(spec, x = nil, y = nil, w = nil, h = nil)
+Recommended `WornPattern` ranges:
+
+| Field | Practical Range | Meaning |
+| --- | --- | --- |
+| `color / tint` | alpha `24..70` | Main worn overlay. Dark tint lowers brightness/contrast; light tint can be used on dark metal. |
+| `edgeColor / highlight` | alpha `40..120` | Broken edge highlight. Keep it material-colored, not pure white. |
+| `fractal` | `0.20..0.70` | Sparse soft scuff intensity. It should create uneven worn patches, not smoke. |
+| `grain` | `0.35..0.90` | Fine surface roughness and contrast breakup. This is the main "not perfectly smooth" control. |
+| `scratches` | `0.12..0.55` | Sparse short scratch density. Raise slowly; too high becomes random drawn lines. |
+| `edge` | `0.25..0.85` | Broken edge wear intensity inside the shape boundary. |
+| `scale` | `24..48` | Soft scuff scale in pixels. Lower values look busier; higher values look cleaner. |
+| `grainScale` | `3.5..7` | Fine roughness density. |
+| `scratchScale` | `20..34` | Scratch cell spacing. Larger values produce fewer, farther-apart scratches. |
+| `scratchWidth` | `0.03..0.07` | Scratch thickness. Keep narrow for UI. |
+| `edgeWidth` | `4..9` | Edge-wear band width in pixels. |
+| `angle` | degrees | Scratch direction. |
+| `softness` | reserved | Kept in the pattern record for compatibility with older tuning presets. |
+| `warp` | `0..0.08` | Slightly bends the procedural field. Keep low for UI panels. |
+| `offset / speed` | number | Sampling offset; speed animates when the caller wants motion. |
+| `seed` | number or string | Stable variation seed. |
+
+Tuning notes:
+
+- For dark inventory/shop cards, start with the default values above and adjust only `color.a` and `edgeColor.a` first.
+- `grain` gives the surface roughness; `fractal` gives larger uneven scuffs; `scratches` should remain sparse.
+- Edge wear should be broken and local. If it reads as inner glow or a continuous border, lower `edge`, `edgeColor.a`, or `edgeWidth`.
+
+## Transforms
+
+```lua
+local transform = MGFX.Transform({
+    origin = "50% 50%",
+    rotate = 6,
+    scale = 1.02,
+    translate = {x = 0, y = -2},
+})
+
+local tilt = MGFX.PointerTilt(mx, my, {
+    perspective = 900,
+    maxRotateX = 4,
+    maxRotateY = 6,
+})
 ```
 
-Pushes a draw-phase transform for multiple immediate draws. Returns a truthy
-value when the transform was pushed.
+Use `style.transform` for a single draw call:
 
-## popTransform
-
-```lux
-mgfx.api.popTransform()
+```lua
+MGFX.RoundedBoxEx(x, y, w, h, {
+    radius = 12,
+    fill = Color(12, 20, 28, 210),
+    transform = tilt,
+})
 ```
 
-Pops the active draw transform.
+Use a transform stack for multiple calls:
 
-## transformPoint
-
-```lux
-mgfx.api.transformPoint(x, y)
+```lua
+if MGFX.PushTransform(transform, x, y, w, h) then
+    MGFX.RoundedBoxEx(x, y, w, h, panelStyle)
+    MGFX.RingEx(cx, cy, 42, 6, ringStyle)
+    MGFX.PopTransform()
+end
 ```
 
-Maps a point through the current transform.
+Transforms are visual only. They do not change layout, hit testing, or input coordinates.
 
-## untransformPoint
+## Projected Quads
 
-```lux
-mgfx.api.untransformPoint(sx, sy)
+`ProjectedQuad` is an expert helper for perspective-like visual quads. Prefer `Transform` or `PointerTilt` unless you need explicit corner positions.
+
+```lua
+local q = MGFX.ProjectedQuad({
+    tl = {x = x + 8, y = y},
+    tr = {x = x + w - 3, y = y + 5},
+    br = {x = x + w, y = y + h},
+    bl = {x = x, y = y + h - 7},
+    steps = 12,
+})
 ```
 
-Approximately maps a transformed point back to local space. Use for visual
-alignment helpers only; layout and hit testing remain caller-owned.
+## Capability Queries
 
-## get
-
-```lux
-mgfx.api.getCapabilities(target)
+```lua
+MGFX.GetCapabilities(target)
+MGFX.Supports(target, key)
 ```
 
-Returns implemented render slots and metadata for a target. The installed
-facade name is `MGFX.GetCapabilities`.
+Common targets:
 
-Common targets include:
+| Target | Meaning |
+| --- | --- |
+| `MGFX.TARGET.ROUNDED_BOX` | Rounded box, circle, capsule family. |
+| `MGFX.TARGET.CHAMFER_BOX` | Chamfer box. |
+| `MGFX.TARGET.POLY` | Convex polygon. |
+| `MGFX.TARGET.LINE` | Line primitive. |
+| `MGFX.TARGET.IMAGE` | Image and icon mask path. |
+| `MGFX.TARGET.PROGRESS_BAR` | Progress bar. |
+| `MGFX.TARGET.SEGMENT_BAR` | Segment bar. |
+| `MGFX.TARGET.TEXT` | Text route. |
 
-```lux
-mgfx.capabilities.TARGET.ROUNDED_BOX
-mgfx.capabilities.TARGET.CHAMFER_BOX
-mgfx.capabilities.TARGET.POLY
-mgfx.capabilities.TARGET.LINE
-mgfx.capabilities.TARGET.RING
-mgfx.capabilities.TARGET.ARC
-mgfx.capabilities.TARGET.SECTOR
-mgfx.capabilities.TARGET.IMAGE
-mgfx.capabilities.TARGET.PROGRESS_BAR
-mgfx.capabilities.TARGET.SEGMENT_BAR
-mgfx.capabilities.TARGET.TEXT
-```
+Capabilities describe implemented render slots, not future plans.
 
-## supports
-
-```lux
-mgfx.api.supports(target, key)
-```
-
-Checks whether a target supports a public render slot.
-
-```lux
-if mgfx.api.supports(mgfx.capabilities.TARGET.RING, "outerGlow") {
-  mgfx.api.ringEx(cx, cy, 36, 6, {
-    fill = Color(80, 170, 255),
-    outerGlow = { width = 14 },
-  })
-}
-```
-
-[Back to detailed API index](./index)
+[Back to API Reference](./index)

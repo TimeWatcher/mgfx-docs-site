@@ -1,175 +1,116 @@
-# Frame Scope and Debugging
+# Frame and Debug API
 
-Frame functions manage the active MGFX draw frame, rectangular clipping, queued
-command flush, and debug overlay. Coordinates are relative to the active frame.
+Frame APIs define the coordinate space and flush recorded text/clip commands.
 
-Facade aliases: `MGFX.StartPanel`, `MGFX.EndPanel`, `MGFX.StartScreen`,
-`MGFX.EndScreen`, `MGFX.PushClip`, `MGFX.PopClip`, `MGFX.DebugOverlay`.
+## Functions
 
-## Scope
+```lua
+MGFX.StartPanel(panel, w, h)
+MGFX.EndPanel()
 
-- Use `startPanel` / `endPanel` inside `PANEL:Paint`.
-- Use `startScreen` / `endScreen` inside `HUDPaint` or screen-space overlays.
-- `pushClip` / `popClip` are rectangular scissor clips, not arbitrary shape
-  masks.
+MGFX.StartScreen(w, h)
+MGFX.EndScreen()
 
-## This Page
+MGFX.PushClip(x, y, w, h)
+MGFX.PopClip()
 
-- [startPanel](#startpanel) - Start a panel-local MGFX frame and install panel clipping.
-- [endPanel](#endpanel) - End the panel frame, replay queued commands, and clear frame state.
-- [startScreen](#startscreen) - Start a screen-space frame, usually for HUDPaint.
-- [endScreen](#endscreen) - End the screen-space frame and flush queued commands.
-- [pushClip](#pushclip) - Push a frame-local rectangular scissor clip.
-- [popClip](#popclip) - Pop the current rectangular clip and restore the previous scissor.
-- [debugOverlay](#debugoverlay) - Draw a small internal render statistics overlay.
+local mask = MGFX.Mask(painter)
+MGFX.Clip(mask, x, y, w, h, callback)
+mask:Clip(x, y, w, h, callback)
 
-## Function Reference
-
-## startPanel
-
-```lux
-mgfx.api.startPanel(panel, w, h)
+MGFX.ShaderStatus()
+MGFX.HasShaders()
+MGFX.GetCapabilities(target)
+MGFX.Supports(target, key)
 ```
 
-Starts a panel-local MGFX frame and immediately installs panel clipping.
+Lux uses the same functions as lowerCamelCase methods under `mgfx.api`.
 
-#### Parameters
+## Common Template
 
-| Parameter | Description |
-| --- | --- |
-| `panel` | VGUI panel. `panel:LocalToScreen(0, 0)` becomes the frame origin. |
-| `w, h` | Optional frame size. If omitted, MGFX reads `panel:GetSize()`. |
+::: code-group
 
-#### Notes
+```lua [GLua]
+function PANEL:Paint(w, h)
+    MGFX.StartPanel(self, w, h)
+    MGFX.RoundedBox(0, 0, w, h, 8, Color(20, 24, 32, 230))
+    MGFX.EndPanel()
+end
+```
 
-- Call at the beginning of `PANEL:Paint` or another panel-local paint function.
-- Later draw coordinates are panel-local, not screen coordinates.
-- Always pair it with `endPanel` in the same paint pass.
+```lux [Lux]
+import * as mgfx from "@lux/mgfx"
 
-#### Example
+local draw = mgfx.api
 
-```lux
-client fn paint(panel, w, h) {
-  mgfx.api.startPanel(panel, w, h)
-  mgfx.api.roundedBox(0, 0, w, h, 8, Color(20, 24, 32, 230))
-  mgfx.api.endPanel()
+fn PANEL:Paint(w, h) {
+  draw.startPanel(self, w, h)
+  draw.roundedBox(0, 0, w, h, 8, Color(20, 24, 32, 230))
+  draw.endPanel();
 }
 ```
 
-## endPanel
+:::
 
-```lux
-mgfx.api.endPanel()
+## `StartPanel`
+
+```lua
+MGFX.StartPanel(panel, w, h)
 ```
 
-Ends the current panel frame, replays queued text/clip commands, and clears
-frame state.
+Starts a panel-local MGFX frame. Coordinates inside the frame are relative to the panel, not screen coordinates.
 
-#### Notes
+Use this at the start of `PANEL:Paint(w, h)` and call `EndPanel()` before returning.
 
-- Shapes and images normally draw immediately; text flushes here.
-- Call after all MGFX panel drawing for the current frame.
+## `StartScreen`
 
-#### Example
-
-```lux
-mgfx.api.startPanel(panel, w, h)
-mgfx.api.text("Ready", "DermaDefault", 12, 12, color_white)
-mgfx.api.endPanel()
+```lua
+MGFX.StartScreen(w, h)
 ```
 
-## startScreen
+Starts a screen-space MGFX frame, usually from `HUDPaint`.
 
-```lux
-mgfx.api.startScreen(w = ScrW(), h = ScrH())
+## Clip Stack
+
+```lua
+MGFX.PushClip(x, y, w, h)
+MGFX.PopClip()
 ```
 
-Starts a screen-space MGFX frame, usually for `HUDPaint`.
+`PushClip` clips subsequent drawing to a rectangular scissor region. It remains a cheap coarse clip, not a general shape mask.
 
-#### Parameters
+For arbitrary-content shape clipping, define coverage and apply it with the callback-only `Clip` transaction:
 
-| Parameter | Description |
-| --- | --- |
-| `w, h` | Optional screen frame size. Defaults to `ScrW()` and `ScrH()`. |
+```lua
+local rounded = MGFX.Masks.Rounded({radius = 18, units = "local"})
 
-#### Notes
-
-- Coordinates are already screen-space with the origin at the top left.
-- Use for HUD layers, not panel paint.
-
-#### Example
-
-```lux
-hook.Add("HUDPaint", "MyHud", () => {
-  mgfx.api.startScreen()
-  mgfx.api.ring(ScrW() - 72, 72, 28, 5, Color(80, 210, 170))
-  mgfx.api.endScreen()
-})
+MGFX.Clip(rounded, x, y, w, h, function()
+    MGFX.Image(x - 20, y, w + 40, h, material)
+    MGFX.Text("ANTIALIASED", "DermaLarge", x + w / 2, y + h / 2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+end)
 ```
 
-## endScreen
+`MGFX.Mask(function(m, w, h) ... end)` records custom vector coverage. The recorder exposes `Draw`/`Union`, `Subtract`, `Intersect`, `Xor`, and `Invert`; see [Coverage Masks and Antialiased Clip](../guide/masks-and-clip) for exact formulas, presets, invalidation, cache keys, and self-clipping callbacks.
 
-```lux
-mgfx.api.endScreen()
+Clip does not use stencil. It captures the framebuffer before and after the callback and composites those snapshots through continuous shader coverage. This preserves antialiased edges even when the content mixes MGFX shapes, text, images, native `surface` drawing, and backdrop effects.
+
+Each Clip costs two framebuffer copies and one bounded composite draw. The rectangular scissor is only a coarse performance bound; it does not define the shape edge. Clip requires the shader/render-target path, axis-aligned frame mapping, finite dimensions no larger than the framebuffer, and at most four nested scopes. It raises an error when unavailable instead of falling back to a binary clip. Do not call `BeginCommands` inside Clip or coverage recording; an active command batch is flushed before capture and resumed after compositing. Do not enter Clip while the caller owns a `render.OverrideBlend` or `render.OverrideAlphaWriteEnable` scope, because GMod exposes no getter with which MGFX could restore that descriptor.
+
+## Diagnostics
+
+```lua
+local status = MGFX.ShaderStatus()
+print(status.ok, status.version, status.reason)
 ```
 
-Ends the current screen frame and flushes queued commands.
+`ShaderStatus` reports whether the shader runtime is active. Fallback rendering is expected when shaders are unavailable or forced off.
 
-#### Notes
+## Capabilities
 
-- Pair with `startScreen`.
-- If text appears behind shapes, issue the text calls later before `endScreen`.
-
-## pushClip
-
-```lux
-mgfx.api.pushClip(x, y, w, h)
+```lua
+if MGFX.Supports(MGFX.TARGET.POLY, "outerGlow") then
+    MGFX.PolyEx(points, {outerGlow = {width = 12}})
+end
 ```
 
-Pushes a rectangular scissor clip relative to the active frame.
-
-#### Parameters
-
-| Parameter | Description |
-| --- | --- |
-| `x, y` | Clip origin in active frame-local pixels. |
-| `w, h` | Clip size. Non-positive size becomes an empty clip. |
-
-#### Notes
-
-- This is rectangular clipping only, not a shape mask stack.
-- Nested clips intersect with parent clips.
-
-## popClip
-
-```lux
-mgfx.api.popClip()
-```
-
-Pops the current rectangular clip and restores the previous scissor rectangle.
-
-#### Notes
-
-- Every `pushClip` should be matched by one `popClip`.
-- An unbalanced clip stack can affect later draws in the same frame.
-
-## debugOverlay
-
-```lux
-mgfx.api.debugOverlay(x = 8, y = 8)
-```
-
-Draws a small internal render statistics overlay.
-
-#### Parameters
-
-| Parameter | Description |
-| --- | --- |
-| `x, y` | Optional overlay position. |
-
-#### Notes
-
-- Useful during development for draw count, fallback count, and text stats.
-- It uses ordinary GMod text and is not intended as production UI.
-
-[Back to detailed API index](./index)
+Capabilities are useful for tools and optional feature probes. Normal drawing code usually does not need to branch on them.

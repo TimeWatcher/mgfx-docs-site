@@ -1,327 +1,195 @@
-# Primitives
+# Shapes and Lines
 
-Primitive functions draw basic shapes: rounded boxes, chamfer boxes, convex
-polygons, lines, circles, and capsules. Advanced visual slots live in `Ex`
-style tables.
+These APIs draw shape-level building blocks. Advanced visual effects live in the `Ex` style table.
 
-Facade aliases: `MGFX.RoundedBox`, `MGFX.RoundedBoxEx`, `MGFX.ChamferBox`,
-`MGFX.ChamferBoxEx`, `MGFX.RegularPoly`, `MGFX.RegularPolyEx`,
-`MGFX.Diamond`, `MGFX.DiamondEx`, `MGFX.Caret`, `MGFX.CaretEx`,
-`MGFX.Poly`, `MGFX.PolyEx`, `MGFX.Line`, `MGFX.LineEx`, `MGFX.Circle`,
-`MGFX.CircleEx`, `MGFX.Capsule`, `MGFX.CapsuleEx`.
+Plain GLua calls `MGFX.*`. Lux calls the same APIs as lowerCamelCase methods on `mgfx.api`.
 
-## Scope
+## Functions
 
-- Use short signatures for simple hot paths.
-- Use `nameEx(..., style)` when a call needs named fields, glow, backdrop,
-  patterns, transforms, or per-corner values.
-- `regularPoly`, `diamond`, and `caret` cover common convex polygon shapes so
-  callers do not have to hand-build point tables.
-- `poly` / `polyEx` accept convex polygons. Split complex paths before passing
-  them to MGFX.
+```lua [GLua]
+MGFX.RoundedBox(x, y, w, h, radius, fill, stroke, strokeWidth)
+MGFX.RoundedBoxBackdrop(x, y, w, h, radius, backdrop)
+MGFX.RoundedBoxEx(x, y, w, h, style)
 
-## This Page
+MGFX.ChamferBox(x, y, w, h, cuts, fill, stroke, strokeWidth)
+MGFX.ChamferBoxEx(x, y, w, h, style)
 
-- [roundedBox](#roundedbox) - Simple rounded rectangle helper.
-- [roundedBoxEx](#roundedboxex) - Advanced table-style rounded rectangle.
-- [chamferBox](#chamferbox) - Simple chamfered rectangle helper.
-- [chamferBoxEx](#chamferboxex) - Advanced chamfered rectangle with `style.cuts`.
-- [regularPoly](#regularpoly) - Regular 3..8-sided polygon helper.
-- [regularPolyEx](#regularpolyex) - Table-style regular polygon.
-- [diamond](#diamond) - Rectangle-bounded diamond helper.
-- [diamondEx](#diamondex) - Table-style diamond.
-- [caret](#caret) - Directional triangle arrow helper.
-- [caretEx](#caretex) - Table-style directional triangle arrow.
-- [poly](#poly) - Draw a caller-provided convex polygon.
-- [polyEx](#polyex) - Convex polygon with named style fields.
-- [line](#line) - Draw a line segment with a positional signature.
-- [lineEx](#lineex) - Line segment with named width and paint fields.
-- [circle](#circle) - Simple circle helper.
-- [circleEx](#circleex) - Advanced circle using rounded shape style.
-- [capsule](#capsule) - Simple capsule rectangle helper.
-- [capsuleEx](#capsuleex) - Advanced capsule using rounded shape style.
-- [style.backdrop](#style-backdrop) - Framebuffer blur/tint clipped by shape coverage.
-- [style.transform](#style-transform) - Draw-phase visual transform.
-- [Radial vignette fill](#radial-vignette-fill) - Vignettes are transparent radial fills.
+MGFX.RegularPoly(cx, cy, radius, sides, rotation, fill, stroke, strokeWidth)
+MGFX.RegularPolyEx(cx, cy, radius, sides, style)
 
-## Common Shape Recipes
+MGFX.Diamond(x, y, w, h, fill, stroke, strokeWidth)
+MGFX.DiamondEx(x, y, w, h, style)
 
-#### Card With a Real Drop Shadow
+MGFX.Caret(x, y, w, h, direction, fill, stroke, strokeWidth)
+MGFX.CaretEx(x, y, w, h, style)
 
-```lux
-mgfx.api.roundedBoxEx(x, y, w, h, {
-  radius = 10,
-  fill = Color(20, 24, 32, 232),
-  stroke = Color(255, 255, 255, 26),
-  strokeWidth = "hairline",
-  shadow = { x = 0, y = 6, blur = 14, spread = 1, color = Color(0, 0, 0, 118), softness = 0.66 },
-})
+MGFX.Poly(points, fill, stroke, strokeWidth)
+MGFX.PolyEx(points, style)
+
+MGFX.Line(x1, y1, x2, y2, width, fill)
+MGFX.LineNoCaps(x1, y1, x2, y2, width, fill)
+MGFX.LineEx(x1, y1, x2, y2, style)
+
+MGFX.Circle(cx, cy, radius, fill, stroke, strokeWidth)
+MGFX.CircleEx(cx, cy, radius, style)
+
+MGFX.Capsule(x, y, w, h, fill, stroke, strokeWidth)
+MGFX.CapsuleEx(x, y, w, h, style)
 ```
 
-Small controls usually want `shadow.y = 1..3` and `blur = 4..8`. Large panels
-can use `y = 8..12` and `blur = 18..28`.
+## Shared Style Fields
 
-#### Glass Blur Without Shadow
-
-```lux
-mgfx.api.roundedBoxEx(x, y, w, h, {
-  radius = 12,
-  fill = Color(0, 0, 0, 0),
-  backdrop = { blur = 5, tint = Color(8, 14, 24, 112), opacity = 1 },
-  stroke = Color(255, 255, 255, 22),
-  strokeWidth = 1,
-})
-```
-
-`backdrop` affects only the covered interior. Add `shadow` when you need a
-falling shadow; do not use backdrop as a shadow substitute.
-
-#### Common Convex Polygons
-
-```lux
-mgfx.api.regularPolyEx(cx, cy, 18, 6, {
-  rotation = 30,
-  fill = Color(80, 170, 255, 220),
-  shadow = { x = 0, y = 3, blur = 8, color = Color(0, 0, 0, 110), softness = 0.68 },
-})
-
-mgfx.api.diamondEx(x, y, 24, 24, {
-  fill = Color(255, 190, 66, 220),
-  stroke = Color(255, 255, 255, 48),
-  strokeWidth = 1,
-})
-
-mgfx.api.caretEx(x, y, 18, 18, {
-  direction = "right",
-  fill = Color(255, 112, 92, 220),
-})
-```
-
-`regularPoly` is a regular polygon. Use `sides = 3` for an equilateral triangle.
-Use `caret` for a directional triangle arrow instead of inventing an ambiguous
-`Triangle` helper.
-
-## Effect Ranges
-
-| Field | Recommended range | Notes |
-| --- | --- | --- |
-| `radius` | Buttons `4..8`, panels `8..16`, capsules `h * 0.5` | Radius is normalized so opposing corners do not overlap. |
-| `cuts` | Small blocks `4..8`, cards `8..14` | Keep chamfers below about `h * 0.45`. |
-| `shadow.x/y` | Small controls `y = 1..3`, cards `4..8`, panels `8..12` | Positive x moves right; positive y moves down. |
-| `shadow.blur` | Small controls `4..8`, cards `10..18`, panels `18..28` | Soft edge width, not offset. |
-| `shadow.spread` | `0..3` | Shape growth before the soft edge. |
-| `outerGlow.width/size` | `6..18` | Add `x/y` only for intentionally offset glow. |
-| `innerGlow.width/size` | `4..14` | Clipped inside the shape; no offset. |
-| `softness` | `0..1`, commonly `0.55..0.75` | Lower values are sharper; higher values are softer. |
-| `backdrop.blur` | `3..10` | Interior framebuffer blur/tint, not a shadow. |
-
-## Function Reference
-
-## roundedBox
-
-```lux
-mgfx.api.roundedBox(x, y, w, h, radius, fill, stroke = nil, strokeWidth = nil)
-```
-
-Simple rounded rectangle helper.
-
-#### Parameters
-
-| Parameter | Description |
+| Field | Meaning |
 | --- | --- |
-| `x, y, w, h` | Rectangle in active frame-local pixels. |
-| `radius` | Corner radius in pixels. Use `roundedBoxEx` for per-corner radius. |
-| `fill` | `Color` or MGFX paint record. |
-| `stroke, strokeWidth` | Optional stroke color and width. |
+| `fill` / `color` | Color or paint record used for the shape body. |
+| `stroke` / `strokeWidth` | Optional border color and width. |
+| `shadow` | External soft shadow. `x/y` moves the shadow shape. |
+| `outerGlow` | External glow. `x/y` biases glow direction without moving the source shape. |
+| `innerGlow` | Inner edge glow for supported shapes. |
+| `backdrop` | Shape-clipped framebuffer blur/tint. Table form accepts integer `level` and explicit `recapture`. |
+| `pattern` | Shader pattern such as `StripePattern`, `SmokePattern`, or `WornPattern`. |
+| `transform` | Visual-only transform record. |
 
-#### Example
+For repeated hot-path draws, normalize tables once with
+`MGFX.CompileStyle(style, target)` or `MGFX.CompileBackdrop(backdrop)`, then
+reuse the returned record. `RoundedBoxBackdrop` is the positional backdrop-only
+path; `LineNoCaps` draws a line whose endpoints are not extended by half its
+width. These APIs avoid constructing a temporary style table per draw.
 
-```lux
-mgfx.api.roundedBox(16, 16, 220, 48, 8, Color(28, 34, 46, 230), Color(255, 255, 255, 28), 1)
+## Shape Stroke Styles
+
+Shape strokes are centered on the shape boundary: half of the width is drawn
+inside and half outside. The existing `stroke = Color(...)` plus
+`strokeWidth` API remains supported. To select a line pattern, pass a stroke
+record instead:
+
+```lua
+MGFX.RoundedBoxEx(x, y, w, h, {
+    radius = 12,
+    fill = Color(18, 24, 32),
+    stroke = {
+        color = Color(90, 190, 255),
+        width = 3,
+        kind = "dot-dash",
+        length = 12,
+        gap = 6,
+        offset = 0,
+    },
+})
 ```
 
-## roundedBoxEx
-
-```lux
-mgfx.api.roundedBoxEx(x, y, w, h, style)
-```
-
-Advanced rounded rectangle with table-style fields.
-
-#### Common Style Fields
-
-| Field | Description |
+| Stroke field | Meaning |
 | --- | --- |
-| `radius` | Number or `{tl, tr, br, bl}` table. |
-| `fill` | `Color` or MGFX paint record. |
-| `stroke / strokeWidth` | Optional stroke. |
-| `shadow` | Drop shadow spec. |
-| `innerGlow / outerGlow` | Edge glow specs. |
-| `backdrop` | Shape-clipped framebuffer blur/tint. |
-| `pattern` | `stripePattern`, `smokePattern`, or pattern spec. |
-| `transform` | Draw-phase transform record. |
+| `color` | Required stroke `Color`. `tint` is accepted as an alias. |
+| `width` | Stroke width in pixels. A separate `style.strokeWidth` takes precedence for compatibility. |
+| `kind` | `"solid"`, `"dot"`, `"dash"`, or `"dot-dash"`; defaults to `"solid"`. |
+| `length` | Visible dash length in pixels. |
+| `gap` | Spacing between dots or dashes in pixels. |
+| `offset` | Pattern phase in pixels; animate it to move the pattern. |
 
-#### Example
+Patterned strokes use a separate stroke pass so fills, gradients, shadows,
+glows, and backdrop effects retain their existing paths. The record is
+supported by rounded boxes, chamfer boxes, circles, capsules, convex polygon
+shapes, progress/segment bars, rings, arcs, and sectors. Unknown `kind` values
+raise an error instead of silently becoming solid.
 
-```lux
-mgfx.api.roundedBoxEx(x, y, w, h, {
-  radius = { tl = 10, tr = 10, br = 4, bl = 4 },
-  fill = mgfx.api.linearGradient(0, 0, 0, 1, Color(28, 34, 46), Color(16, 20, 28)),
-  stroke = Color(255, 255, 255, 28),
-  strokeWidth = 1,
-  outerGlow = { color = Color(80, 170, 255, 46), width = 14 },
+## Rounded Boxes
+
+::: code-group
+
+```lua [GLua]
+MGFX.RoundedBoxEx(x, y, w, h, {
+    radius = 10,
+    fill = Color(18, 24, 32, 220),
+    stroke = Color(255, 255, 255, 32),
+    strokeWidth = 1,
 })
 ```
 
-## chamferBox
+```lux [Lux]
+import * as mgfx from "@lux/mgfx"
 
-```lux
-mgfx.api.chamferBox(x, y, w, h, cuts, fill, stroke = nil, strokeWidth = nil)
-```
+local draw = mgfx.api
 
-Simple chamfered rectangle helper.
-
-`cuts` can be a number applied to every corner, or a `{tl, tr, br, bl}` table.
-Values are clamped to half the shorter side.
-
-## chamferBoxEx
-
-```lux
-mgfx.api.chamferBoxEx(x, y, w, h, style)
-```
-
-Advanced chamfered rectangle. Use `style.cuts` for corner cuts. It supports the
-same high-level visual fields as `roundedBoxEx`: fill, stroke, shadow,
-inner/outer glow, backdrop, pattern, and transform.
-
-#### Example
-
-```lux
-mgfx.api.chamferBoxEx(x, y, w, h, {
-  cuts = { tl = 12, tr = 3, br = 12, bl = 3 },
-  fill = Color(20, 26, 34, 235),
-  pattern = mgfx.api.stripePattern(Color(255, 255, 255, 24), 9, 1),
-})
-```
-
-## poly
-
-```lux
-mgfx.api.poly(points, fill, stroke = nil, strokeWidth = nil)
-```
-
-Draws a convex polygon from caller-provided points. Points may be `{x = ..., y
-= ...}` records or array-like `{x, y}` pairs.
-
-## polyEx
-
-```lux
-mgfx.api.polyEx(points, style)
-```
-
-Draws a convex polygon with named style fields. Useful for custom UI shards,
-arrows, badges, and faceted HUD panels.
-
-## line
-
-```lux
-mgfx.api.line(x1, y1, x2, y2, width = 1, fill = nil)
-```
-
-Draws a simple line segment.
-
-## lineEx
-
-```lux
-mgfx.api.lineEx(x1, y1, x2, y2, style)
-```
-
-Advanced line segment. Use `style.width`, `style.fill`, optional radius/cap
-fields, backdrop, transform, and supported effects.
-
-## circle
-
-```lux
-mgfx.api.circle(cx, cy, radius, fill, stroke = nil, strokeWidth = nil)
-```
-
-Simple circle helper built on rounded-box coverage.
-
-## circleEx
-
-```lux
-mgfx.api.circleEx(cx, cy, radius, style)
-```
-
-Advanced circle. It uses the rounded shape style model, so fill, stroke, glow,
-backdrop, pattern, and transform behave like `roundedBoxEx`.
-
-## capsule
-
-```lux
-mgfx.api.capsule(x, y, w, h, fill, stroke = nil, strokeWidth = nil)
-```
-
-Simple capsule rectangle. Radius is derived from the shorter side.
-
-## capsuleEx
-
-```lux
-mgfx.api.capsuleEx(x, y, w, h, style)
-```
-
-Advanced capsule. Use it for pill buttons, tags, compact meters, and highlighted
-rows that need named style fields.
-
-## style.backdrop
-
-`style.backdrop` applies framebuffer blur/tint clipped by the current shape or
-image mask.
-
-Supported shorthand:
-
-```lux
-backdrop = true
-backdrop = 6
-backdrop = Color(8, 14, 24, 110)
-backdrop = { blur = 6, tint = Color(8, 14, 24, 110), opacity = 0.8 }
-```
-
-Backdrop is an effect field, not a standalone primitive.
-
-## style.transform
-
-`style.transform` is a draw-phase visual transform. It does not change layout,
-input hit testing, text flow, or rectangular clipping.
-
-```lux
-local tilt = mgfx.api.pointerTilt(mx, my, {
-  perspective = 900,
-  maxRotateX = 4,
-  maxRotateY = 6,
-})
-
-mgfx.api.roundedBoxEx(x, y, w, h, {
+draw.roundedBoxEx(x, y, w, h, {
   radius = 10,
-  fill = Color(28, 34, 46, 230),
-  transform = tilt,
+  fill = Color(18, 24, 32, 220),
+  stroke = Color(255, 255, 255, 32),
+  strokeWidth = 1,
+});
+```
+
+:::
+
+`radius` accepts a number or `{tl, tr, br, bl}`.
+
+`RoundedBoxEx.shadow` can also be an array of shadow specs for CSS-style layered
+box shadows:
+
+```lua
+MGFX.RoundedBoxEx(x, y, w, h, {
+    radius = 10,
+    fill = Color(18, 24, 32, 220),
+    shadow = {
+        {x = 0, y = 1, blur = 2, color = Color(0, 0, 0, 90)},
+        {x = 0, y = 8, blur = 24, color = Color(0, 0, 0, 80)},
+    },
 })
 ```
 
-## Radial vignette fill
+The renderer loops only the shadow path for these layers. It does not repeat
+fill, stroke, backdrop, pattern, or inner glow work.
 
-Use an ordinary transparent radial gradient for a vignette:
+## Chamfer Boxes
 
-```lux
-mgfx.api.roundedBoxEx(x, y, w, h, {
-  radius = 12,
-  fill = mgfx.api.radialGradient(0.5, 0.5, 0.85, {
-    {0, Color(0, 0, 0, 0)},
-    {1, Color(0, 0, 0, 96)},
-  }),
+```lua
+MGFX.ChamferBoxEx(x, y, w, h, {
+    cuts = {24, 8, 24, 8},
+    fill = Color(5, 12, 18, 180),
+    outerGlow = {color = Color(60, 180, 255, 76), width = 14, x = 8, y = -4},
 })
 ```
 
-Transparent gradient stops must explicitly use alpha `0`.
+`cuts` accepts a number or `{tl, tr, br, bl}`.
 
-[Back to detailed API index](./index)
+## Convex Polygons
+
+```lua
+MGFX.PolyEx({
+    {x = x, y = y},
+    {x = x + 96, y = y + 20},
+    {x = x + 76, y = y + 72},
+}, {
+    fill = Color(80, 170, 255, 90),
+    outerGlow = {color = Color(80, 170, 255, 80), width = 12},
+})
+```
+
+`PolyEx` accepts 3..8 convex points. Complex shapes should be split into convex pieces.
+
+## Lines
+
+```lua
+MGFX.LineEx(x1, y1, x2, y2, {
+    width = 3,
+    fill = Color(80, 170, 255),
+    caps = false,
+})
+```
+
+Use `caps = false` or `noCaps = true` for square-ended line quads.
+
+## Shape-aware Effects
+
+`shadow`, `outerGlow`, `backdrop`, and `pattern` are clipped or evaluated against the current shape where supported. `outerGlow.x/y` is directional glow bias, not a duplicate shifted shape. Use `shadow.x/y` when you want a projected offset.
+
+Blurred backdrops share a framebuffer capture and completed two-axis blur per
+engine frame, integer `level`, and intensity. Later matching shapes only perform
+one masked sample. A higher `{blur = value, level = 1}` captures after lower
+layers have drawn. Changing intensity reruns the axes from the current level's
+raw capture; `recapture = true` forces a newer source inside that level.
+Tint-only backdrops do not use the shared blur resource.
+
+For rounded boxes and chamfer boxes, compatible `shadow` and `outerGlow` layers may be rendered by one fused shader pass. The style fields and visual semantics remain separate.
+
+[Back to API Reference](./index)

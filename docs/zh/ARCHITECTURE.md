@@ -1,216 +1,155 @@
-# MGFX Lux Package 架构
+# MGFX 内部架构
 
-MGFX 现在维护为 Lux package：`@lux/mgfx`。旧的直接 Lua addon 架构只作为历史背景
-保留：公开渲染模型延续下来，但 loader 归属、模块边界、内部可见性和构建产物都由 Lux
-定义。
+这页记录 MGFX 当前的维护边界。Public API 细节看 [API 总览](./API) 和 [详细 API 参考](./api-reference/)；已移除的批处理原型看 [已移除的批处理设计](./BATCHING)。
 
-建议先阅读 [使用 MGFX](./USAGE)。公开渲染行为见 [API 总览](./API) 和
-[详细 API 参考](./api-reference/)。
+## 分层方向
 
-## 构建期形状
+MGFX 是底层 immediate-style renderer。除了文本记录会延迟到 frame 末尾统一 flush 以外，public draw call 应该按调用顺序直接绘制。调用方应按 immediate draw 的方式思考：先画底层 shape/image，再发出应该覆盖在上面的 text。
 
-MGFX 源码位于独立的 `lux-mgfx` package set：
+MGFX core 负责：
 
-```text
-lux-mgfx/
-  lux.package.toml
-  lux/
-    mgfx/
-      src/
-      capabilities/src/
-      commands/src/
-      frame/src/
-      geometry/src/
-      materials/src/
-      paint/src/
-      primitives/src/
-      roundrect/src/
-      shaderpack/src/
-      style/src/
-      text/src/
-      widgets/src/
-      console/src/
-      demo/src/
-      wheel_demo/src/
-  precompiled/
-  tools/
-```
+- frame scope：`StartPanel`、`StartScreen`、`EndPanel`、`EndScreen`
+- primitive 和 widget 绘制
+- canonical visual style record：fill、stroke、radius、pattern、glow、image、progress、text effect 等
+- public render slot 的 target capability metadata
+- shader/material、text command replay、clip 和 fallback 实现细节
 
-每个目录都是一个 Lux module。一个 module 可以包含多个 part 文件。`module.lux` 是入口
-part，并且可以声明确定性的 part order：
+未来如果有更上层 UI layer，它可以负责 node、layout、interaction state、focus、scrolling、hit-testing、transition 和 component style。那一层可以内部使用 MGFX，但 MGFX 不应该反向依赖它。
 
-```lux
-part order { "module", "cl_base", "cl_gradients", "cl_patterns", "cl_masks", "cl_fill", "cl_lut", "cl_install" }
-```
+## Transform 边界
 
-同一个 module 内的所有 part 共享一个逻辑 module scope。顶层 helper 默认是
-module-private，可被同 module 的其他 part 使用，但仍要通过运行域检查。只有明确的
-`export client` 声明才会进入 package API。
+MGFX 拥有 draw-phase visual transform stack。public surface 是支持的 `Ex` 调用上的 `style.transform`，以及用于复合 immediate 绘制的 `PushTransform` / `PopTransform`。
 
-这取代了旧做法：
+这是 renderer 能力，不是 layout 能力。不要增加 `ProjectedRoundedBoxEx`、`ProjectedRing`、`ProjectedSector` 这类 primitive-specific API。能通过 MGFX textured quad 或 transform-aware polygon 绘制的 primitive，应消费同一个 transform stack。
 
-- 手写 `include(...)` 顺序
-- 数字文件名前缀
-- 临时全局 helper table
-- 独立的 `lua/autorun/server/mgfx_loader.lua`
+实现上，MGFX 会变换提交的 geometry，并在 projected/perspective-like transform 下细分 textured quad。现有 pixel shader 因此继续收到相同的 local UV space，用于 gradient、mask、ring 和 backdrop pass。强透视效果应提高 `steps`，避免 quad faceting 可见。
 
-GMod 后端现在负责生成 loader 和批量处理 `AddCSLuaFile`。
+支持的 public forms：
 
-Shader 维护源码是这组 module 目录之外的特例：
-`lux/mgfx/shadersrc` 保存 HLSL、已提交的 `.vcs` 产物和 shaderpack 生成器。
-它是构建输入，不是 Lux module。二进制 shader compiler 位于 package 树之外的
-`tools/mgfx`。
+- CSS-like record：`origin`、`perspective`、`rotateX`、`rotateY`、`rotate`、`scale`、`translate`、`skewX`、`skewY`、`steps`
+- intent helper：`PointerTilt(x, y, spec)`，用于 pointer-driven 2.5D UI motion
+- expert escape hatch：`ProjectedQuad({tl, tr, br, bl, steps})`
+- point helper：`TransformPoint` 和 `UntransformPoint`
 
-## 运行时形状
+Transform 只影响视觉，不改变 layout、input hit testing、text flow 或矩形 scissor clip 坐标。需要 transformed hit testing 的 UI code 必须自己拥有这条策略。`UntransformPoint` 只用于视觉对齐场景，例如让鼠标追踪径向光点在 transform 后仍对齐。
 
-`@lux/mgfx` 是 client-only package。根模块暴露统一的 `api` 表，安装后的 facade 也从
-这层 API 构建：
+Text 暂不属于这个 transform contract。文本 renderer 使用 deferred glyph/atlas composer，文本 transform 应作为 text composer feature 或未来 UI node feature 设计，不能半截接入 shape geometry。
 
-```lux
-import * as api_mod from "@lux/mgfx/api"
+## Mask 边界
 
-export client fn install(owner = nil) {
-  return api_mod.install(owner)
-}
-```
+Mask 是每个 primitive 自己的 shader coverage，不是全局 renderer state。
 
-真实 package 还会安装 capabilities、commands、geometry、materials、profiler、
-roundrect、primitives、text 和 shaderpack。`installGlobal` 只是一个 facade helper：
+- rounded、capsule、circle、chamfer mask 使用 screen-pixel SDF coverage
+- texture mask 采样调用方提供的 mask texture channel
+- 传给 mask shader 的 `SHAPE_SIZE` 始终是最终 quad 的屏幕像素尺寸，因此 UI 缩放后边缘抗锯齿仍是 1px
+- mask kind 在 Lua 侧白名单化后才能进入 shader
 
-```lux
-export client fn installGlobal(name = "MGFX") {
-  local api = _G[name] ?? {}
-  _G[name] = install(api)
-  return _G[name]
-}
-```
+MGFX 不用 stencil 模拟 shape mask。`PushClip` / `PopClip` 只属于矩形 scissor stack，用于 panel clipping 和 ordering barrier；`MGFX.Mask` + callback-only `MGFX.Clip` 则通过绘制前/后 framebuffer 快照与连续 SDF/coverage raster 合成实现真正的抗锯齿边缘。
 
-新 Lux 代码应调用 `mgfx.api.*`。面向 GLua 的代码需要时可以使用安装后的 `MGFX.*`
-facade。Plain GLua 用户会从 `dist/lua` 里的生成 loader 分发获得这个 facade；该分发由
-`precompiled/` 项目构建。
+Circle/Capsule/Rounded/Chamfer preset 直接走 composite shader；自定义 painter 把 MGFX coverage command 栅格化到延迟分配的全屏 RT，并按 content revision、目标/device extent 与亚像素 phase 缓存。整数像素平移复用 raster。当前 backend 拒绝 transform mapping，并把嵌套限制为四层以约束常驻 RT。
 
-## 公开表面策略
+MGFX 自己 Push 的 render target、camera、model matrix、scissor 和 override 都必须在受保护作用域中对称 Pop/恢复。GMod 没有读取既有 blend/alpha-write override descriptor 的 getter，因此调用方自己持有的 override scope 不属于 Clip contract。
 
-MGFX 有意保留两层公开命名：
+## 参数上传边界
 
-| 表面 | 使用方 | 命名 |
-| --- | --- | --- |
-| 统一 Lux API | Lux 源码 | `mgfx.api.roundedBoxEx`、`mgfx.api.linearGradient` |
-| installed facade | 旧 GLua panel、第三方代码、demo | `MGFX.RoundedBoxEx`、`MGFX.LinearGradient` |
+热路径 shape shader 使用 `$viewprojmat` / pixel shader register `c11` 中的 `MGFXExtraParams` 作为主 16-float 参数页。Lua call site 应使用共享 matrix upload helper，不要发很多单独 `SetFloat`。
 
-`mgfx.api.*` 是主要面向 Lux 的表面。PascalCase facade 从同一层 API 安装出来，用于
-贴合 GMod 习惯和迁移旧代码，并不代表 MGFX 内部依赖全局状态。
+`$invviewprojmat` / pixel shader register `c15` 中的 `MGFXAuxParams` 是辅助 16-float 参数页，给 fused shader、polygon 顶点、text atlas 和额外 effect 参数使用。能放进 matrix 页的参数不要占用 `$c0..$c3`；不要用 `$c8` 之类临时寄存器，它们可能能编译但在 GMod runtime material 中读到 0 或未定义值。
+
+Pattern 是 shader-space paint field。UI code 不应该把大面积 stripe、smoke 或 scanline 背景拆成大量 `LineEx` 调用。如果效果能表示成 primitive shader 数学，就应该在底层 pattern path 实现。
 
 ## 模块边界
 
-`@lux/mgfx/src` 是 composition root。它连接统一 API、安装 public facade，也可以保留
-内部 submodule 给高级维护使用。普通 UI 代码不应该按 submodule 选择调用入口。
+`cl_mgfx.lua` 是 client entry 和 composition root。它负责连接模块、共享 frame/command state，并把明确 helper table 传给 feature module。它应该保持编排层角色，不继续膨胀成渲染实现文件。
 
-下面的 module 名称是内部维护边界，不是推荐给用户的调用入口。
+`cl_mgfx_materials.lua` 负责 shaderpack mount、render target、material creation 和 shader status。
 
-`@lux/mgfx/style` 负责 style normalization：
+`cl_mgfx_style.lua` 负责 public style normalization：
 
-- 颜色和 alpha helper
-- solid 和 gradient fill record
-- 多 stop gradient 规范化和 LUT 绑定
-- pattern
-- mask
-- stroke、radius、backdrop、glow helper
+- fill 和 gradient record
+- pattern constructor
+- radius 和 stroke normalization
+- color helper
+- glow softness 到 shader falloff 的转换
 
-`@lux/mgfx/capabilities` 负责 target capability data 和 style slot normalization。
-Capability entry 必须描述已经实现的渲染行为，而不是愿望清单。
+这些 normalization 应停在 public API 边界。进入具体 renderer 后，内部函数应消费 prepared fill/stroke/effect scalar 参数，而不是继续传递 style 表或构造临时 spec 表。这样代码链路更短，也避免每帧在 `shadowRaw`、`outerGlowRaw`、`innerGlowRaw`、`backdropStyle`、`patternStyle`、`fillFromStyle`、`fillVisible` 上重复付费。
 
-`@lux/mgfx/frame` 负责 active frame state、panel/screen scope、矩形 clip stack、
-command queue 和 frame flush。
+推荐链路：
 
-`@lux/mgfx/commands` 负责 normalized command record 和 replay helper。如果 command
-内部仍使用 positional 格式，该布局必须留在这个 module 后面。
-
-`@lux/mgfx/geometry` 负责底层绘制 helper、transform stack、image fit/UV helper、
-texture size helper 和 draw statistics。
-
-`@lux/mgfx/materials` 负责 shaderpack mount、render target/material creation、
-texture helper 和 shader status。
-
-`@lux/mgfx/roundrect` 负责 rounded-box、circle 和 capsule 渲染。
-
-`@lux/mgfx/primitives` 负责 chamfer box、line 和 convex poly。
-
-`@lux/mgfx/widgets` 负责 progress bar、segment bar、ring、arc、sector、image、icon、
-image mask 和 text draw-call bridge。它的 `module.lux` 声明 part order，使源码能按
-功能拆分，而不需要数字文件名前缀。
-
-`@lux/mgfx/text` 负责 text style resolution、measurement、native text routing、
-whole-run composed text、atlas management、text profiling 和安装。
-
-`@lux/mgfx/paint` 是内部绘制层，位于 roundrect、primitives、widgets、images 和
-styles 之上。公开 Lux 代码应调用 `mgfx.api.*`，不要直接导入这个 module。
-
-`@lux/mgfx/console`、`@lux/mgfx/demo` 和 `@lux/mgfx/wheel_demo` 是可选开发工具。它们
-是 package module，不是外部 addon 依赖。
-
-## 运行域边界
-
-MGFX 的 runtime export 都是 `client`。源码里会显式写出：
-
-```lux
-export client fn roundedBoxEx(...)
-export client fn install(owner)
+```text
+MGFX.RoundedBoxEx(..., style)
+  -> API 边界解析一次
+  -> scalar radius/fill/stroke/effect 参数
+  -> shader/fallback draw
 ```
 
-shared Lux module 只有在明确标记为 client 的代码里才能使用 MGFX。运行域检查器应拒绝
-意外的 server/shared MGFX API 使用。未知外部 GMod 符号由 Lux 的 external-symbol 策略
-处理，但 MGFX 自己的 Lux symbol 是严格检查的。
+避免链路：
 
-## Loader 边界
+```text
+widget helper -> 临时 style table -> shape helper -> 再次 normalization -> draw
+```
 
-Lux 项目里的 MGFX 不再携带手写项目 loader。生成的 GMod loader 归 `luxc gmod build`
-所有。
+`cl_mgfx_capabilities.lua` 负责 target capability matrix 和 paint-slot normalization。它是 public style record 与 primitive family 之间的边界。Capability entry 必须描述已经实现的渲染行为，而不是愿望清单。
 
-构建产物负责：
+`cl_mgfx_geometry.lua` 负责纯底层绘制和图像几何 helper：
 
-- 编译被 import 到的 package module
-- 输出 client Lua artifact
-- 输出会发送客户端文件的 server loader
-- 保留 source map
-- 避免在 GMod 共享 `lua/` 命名空间里使用会冲突的通用文件名
+- textured quad draw
+- created material 的 `DrawTexturedRectUV` half-pixel correction
+- image tint/crop/fit/radius helper
+- textured circle poly fallback
 
-MGFX 源码不应该直接调用 `AddCSLuaFile`。如果字体这类运行时资源必须下发给客户端，
-把行为放在对应 package helper 中，并在 [Shader 与打包](./SHADERS) 里说明。
+`cl_mgfx_frame_geometry.lua` 负责 frame-space geometry helper，用于 frame flushing 和 scissor restoration。Multi-stop gradient 不再拆成 geometry segment，shader path 直接采样共享 gradient LUT。
 
-## Renderer 边界
+`cl_mgfx_commands.lua` 是 queued text/clip command 的 canonical reader boundary。Raw array command layout 不应泄漏到 frame、primitive 或 widget module。只要 command record 还不是完全 named table，这个模块就是唯一允许读取数字 slot 的地方。
 
-MGFX 仍然是 immediate renderer。它不拥有 layout、focus、input、component lifecycle、
-animation state 或 hit testing。未来 Lux UI 层可以建立在 MGFX 之上，但 MGFX 不能反向
-依赖 UI 层。
+`cl_mgfx_frame.lua` 负责 text/clip command capture、clip stack operation 和 frame flushing。Shape command 不在这里排队，仍保持 immediate path。
 
-renderer 负责：
+`cl_mgfx_roundrect.lua` 负责 rounded-box、circle、capsule public API，以及它们的 immediate fill、stroke、pattern、inner glow、outer glow 和 fallback pass。
 
-- frame scope
-- primitive 和 widget
-- canonical style record
-- target capability metadata
-- shader/material setup
-- text command replay
-- clip 和 fallback 行为
+`cl_mgfx_primitives.lua` 负责 chamfer box、line 和 convex poly。Backdrop blur 是 `style.backdrop` 的 shape/image effect，不是独立 public primitive。
 
-调用方负责：
+Widget family 按职责拆分：
 
-- panel lifecycle
-- layout
-- interaction state
-- animation state
-- hit testing
-- data binding
+- `cl_mgfx_widgets_bars.lua`：progress 和 segment bar
+- `cl_mgfx_widgets_rings.lua`：ring、arc、sector
+- `cl_mgfx_widgets_images.lua`：image、icon 和 image mask
+- `cl_mgfx_widgets_text.lua`：text draw-call bridge
+- `cl_mgfx_widgets.lua`：只做 thin aggregator
+
+Public family 遵循 `Name(...)` / `NameEx(...)` 分层：短 positional hot-path call，以及高级 table-based call。
+
+`cl_mgfx_text.lua` 负责文本路由：普通文本走 native drawing，shader text effects 走 whole-run native-raster composer。
+
+Demo 文件不是 library internals。Demo 应展示 public API 和 telemetry，不要直接调用 private helper。
 
 ## 维护规则
 
-- 新代码保持 Lux style：使用 module-private helper、显式 export、realm marker、合适的
-  expression function，以及 module part order，而不是文件名前缀。
-- 不要为 package 内部重新引入 GLua 风格 loader 文件。
-- 不要为了共享 helper 扩大 export。同 module 顶层声明本来就对 part 可见；export 是
-  外部 API。
-- `install(owner)` 函数保持薄而确定。安装函数把 module export 映射到 PascalCase
-  facade，但渲染逻辑应留在功能 module 中。
-- 没有代表性 GMod profiling 和更窄设计时，不要重建已移除的通用 batch scheduler。
-- public API 改动时，同时更新 Lux module 示例和安装后的 `MGFX.*` facade 示例。
+Public arguments 应尽早规范化一次。Immediate renderer 和 fallback renderer 应消费同一份 canonical style data。
+
+模块依赖必须明确。Composition root 可以在 legacy module 迁移期间传大 context table；新模块应暴露一个 constructor，并返回小 helper table。
+
+不要通过 inline split file 来掩盖加载问题。新增 client module 时，应先加入 `lua/autorun/server/mgfx_loader.lua` 确保服务端发送给客户端，再从 `cl_mgfx.lua` 通过 addon base path include：
+
+```lua
+include(MGFX._BasePath .. name)
+```
+
+默认 addon base path 是 `mgfx/`。Gamemode code 不应直接 include MGFX 文件，只应在 addon 加载后调用 public `MGFX.*` API。
+
+Immediate shader path 是主 renderer path，不是 batch scheduler 的 fallback。已移除的 batch prototype 留在文档中作为经验记录，不保留 runtime hook。
+
+除非明确要求，不新增兼容 shim。当前稳定化阶段允许 public API 为更清晰的替代方案破坏兼容，但必须同步文档。
+
+## 维护清单
+
+| 状态 | 项目 |
+| --- | --- |
+| 完成 | 将 round-rect/effect immediate rendering 从 `cl_mgfx.lua` 拆到 `cl_mgfx_roundrect.lua`。 |
+| 完成 | 将 scissor 和 bbox helper 拆到 `cl_mgfx_frame_geometry.lua`，移除旧 gradient-segment clipping path。 |
+| 完成 | 将 widget family 拆成 bars、rings/arcs/sectors、images/masks 和 text bridge。 |
+| 完成 | 增加 `cl_mgfx_commands.lua` 作为 text/clip replay 的 command reader boundary。 |
+| 待办 | 将 queued command 从 positional array 转成 named record。现在已经隔离在 `cl_mgfx_commands.lua` 后面，可以渐进完成。 |
+| 待办 | 继续缩小 `cl_mgfx.lua` 传给模块的共享 context table；新模块优先窄 constructor argument 和返回 helper table。 |
+| 完成 | 增加 cross-cutting draw-phase transform stack 和 `style.transform`，避免创建 `ProjectedXXX` API 家族。 |
+| 完成 | 从 runtime 移除 shape/data-texture batch prototype。代表性 GMod UI profiling 显示它是净负收益。 |
+| 完成 | 保持每个 runtime Lua 文件低于 2000 行。当前最大文件仍是 `cl_mgfx_text.lua`、demo 和较大的 renderer module。 |
