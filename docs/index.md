@@ -16,18 +16,23 @@ hero:
       text: API Reference
       link: /api-reference/
     - theme: alt
+      text: License
+      link: /LICENSE
+    - theme: alt
       text: 中文文档
       link: /zh/
 
 features:
   - title: Pick your runtime first
-    details: Plain GLua projects use lua-mgfx and MGFX.*. Lux projects import @lux/mgfx and use mgfx.api.*.
+    details: Plain GLua projects include mgfx/init.lua and keep its returned API local. Lux projects import @lux/mgfx and use mgfx.api.*.
   - title: Immediate renderer, not framework
     details: MGFX draws the explicit visual state you pass every frame. Layout, input, focus, animation, and hit testing stay in caller code.
   - title: Shape-aware effects
     details: Rounded boxes, chamfers, polygons, rings, sectors, images, and masks clip shadow, glow, backdrop, and patterns to their own coverage.
   - title: Paired examples
     details: User-facing guides show GLua and Lux equivalents so readers do not need to translate API names by guesswork.
+  - title: Community-friendly license
+    details: Qualifying community servers may recover operating costs, and free plugin development is permitted under the Community License 1.1.
 ---
 
 ## Quick Start
@@ -35,23 +40,25 @@ features:
 ::: code-group
 
 ```lua [GLua]
-function PANEL:Paint(w, h)
-    MGFX.StartPanel(self, w, h)
+local mgfx = include("mgfx/init.lua")
 
-    MGFX.RoundedBoxEx(0, 0, w, h, {
+function PANEL:Paint(w, h)
+    mgfx.StartPanel(self, w, h)
+
+    mgfx.RoundedBoxEx(0, 0, w, h, {
         radius = 10,
         fill = Color(8, 14, 20, 170),
         backdrop = {blur = 8, tint = Color(0, 8, 12, 120)},
         outerGlow = {color = Color(70, 205, 255, 64), width = 12},
     })
 
-    MGFX.ProgressBarEx(24, 84, w - 48, 10, 0.72, {
+    mgfx.ProgressBarEx(24, 84, w - 48, 10, 0.72, {
         radius = 5,
         track = Color(10, 18, 24, 190),
-        fill = MGFX.LinearGradient(0, 0, 1, 0, Color(30, 130, 255), Color(255, 210, 110)),
+        fill = mgfx.LinearGradient(0, 0, 1, 0, Color(30, 130, 255), Color(255, 210, 110)),
     })
 
-    MGFX.EndPanel()
+    mgfx.EndPanel()
 end
 ```
 
@@ -87,7 +94,7 @@ fn PANEL:Paint(w, h) {
   <a href="./guide/glua">
     <span>GLua</span>
     <strong>Plain GLua Quick Start</strong>
-    <small>Install lua-mgfx as a normal Garry's Mod addon and call MGFX.* from client drawing code.</small>
+    <small>Include mgfx/init.lua and keep the returned PascalCase API table local to your addon.</small>
   </a>
   <a href="./guide/lux">
     <span>Lux</span>
@@ -115,7 +122,7 @@ fn PANEL:Paint(w, h) {
 
 ## Scope
 
-MGFX is a renderer, not a UI framework. It does not own layout, input, focus, component lifecycle, transition state, or hit testing. Callers compute the current visual state every frame and pass explicit draw arguments to `MGFX.*` or `mgfx.api.*`.
+MGFX is a renderer, not a UI framework. It does not own layout, input, focus, component lifecycle, transition state, or hit testing. Callers compute the current visual state every frame and pass explicit draw arguments to the Plain GLua API table or `mgfx.api.*`.
 
 Plain labels should usually use native GMod text or `Text`. Use `TextEx` only when you need shader text effects such as gradient faces, glow, stroke, or high-quality shadow.
 

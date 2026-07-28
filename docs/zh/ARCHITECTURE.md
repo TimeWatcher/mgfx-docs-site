@@ -60,7 +60,10 @@ Pattern 是 shader-space paint field。UI code 不应该把大面积 stripe、sm
 
 ## 模块边界
 
-`cl_mgfx.lua` 是 client entry 和 composition root。它负责连接模块、共享 frame/command state，并把明确 helper table 传给 feature module。它应该保持编排层角色，不继续膨胀成渲染实现文件。
+`mgfx/init.lua` 是 Plain GLua 的公共 client entry，返回独立 API 表。`cl_mgfx.lua`
+只是内部 composition root：它负责连接模块、共享 frame/command state，并把明确 helper
+table 传给 feature module。它不应写入公共全局表，也不应默认安装命令、hook、诊断 cvar
+或示例。
 
 `cl_mgfx_materials.lua` 负责 shaderpack mount、render target、material creation 和 shader status。
 
@@ -122,19 +125,35 @@ Public family 遵循 `Name(...)` / `NameEx(...)` 分层：短 positional hot-pat
 
 Demo 文件不是 library internals。Demo 应展示 public API 和 telemetry，不要直接调用 private helper。
 
+## 运行时入口分层
+
+| 层 | Plain GLua | Lux |
+| --- | --- | --- |
+| 核心库 | `include("mgfx/init.lua")` | `@lux/mgfx` |
+| 全局兼容 | `mgfx/global.lua` | `@lux/mgfx/global` |
+| 命令与诊断 | `mgfx/devtools.lua` | `@lux/mgfx/devtools` |
+| 示例 | `mgfx/examples.lua` | 显式导入 demo package |
+
+核心导入不得隐式安装公共全局、控制台命令、hook、诊断 cvar 或示例。两种实现的核心
+入口应提供相同渲染行为，可选层由实际集成方明确安装。
+
 ## 维护规则
 
 Public arguments 应尽早规范化一次。Immediate renderer 和 fallback renderer 应消费同一份 canonical style data。
 
 模块依赖必须明确。Composition root 可以在 legacy module 迁移期间传大 context table；新模块应暴露一个 constructor，并返回小 helper table。
 
-不要通过 inline split file 来掩盖加载问题。新增 client module 时，应先加入 `lua/autorun/server/mgfx_loader.lua` 确保服务端发送给客户端，再从 `cl_mgfx.lua` 通过 addon base path include：
+不要通过 inline split file 来掩盖加载问题。新增 Plain GLua client module 时，应把它加入
+`mgfx/distribute.lua` 的核心文件清单，确保服务端会发送给客户端；再由 `cl_mgfx.lua` 在
+`init.lua` 建立的内部加载目标中 include。不要通过公共 `_G.MGFX` 传递模块 owner。
 
 ```lua
-include(MGFX._BasePath .. name)
+local mgfx = include("mgfx/init.lua")
 ```
 
-默认 addon base path 是 `mgfx/`。Gamemode code 不应直接 include MGFX 文件，只应在 addon 加载后调用 public `MGFX.*` API。
+Gamemode code 只 include `mgfx/init.lua`，并保存其返回值；不要直接 include
+`cl_mgfx*.lua`。`mgfx/global.lua`、`mgfx/devtools.lua` 和 `mgfx/examples.lua` 分别是全局
+兼容、开发工具和示例适配层，不属于核心入口。
 
 Immediate shader path 是主 renderer path，不是 batch scheduler 的 fallback。已移除的 batch prototype 留在文档中作为经验记录，不保留 runtime hook。
 

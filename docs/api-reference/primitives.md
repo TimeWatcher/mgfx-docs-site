@@ -2,7 +2,9 @@
 
 These APIs draw shape-level building blocks. Advanced visual effects live in the `Ex` style table.
 
-Plain GLua calls `MGFX.*`. Lux calls the same APIs as lowerCamelCase methods on `mgfx.api`.
+Plain GLua calls the PascalCase methods on its local API owner (named `MGFX` in
+the signatures below). Lux calls the same APIs as lowerCamelCase methods on
+`mgfx.api`.
 
 ## Functions
 

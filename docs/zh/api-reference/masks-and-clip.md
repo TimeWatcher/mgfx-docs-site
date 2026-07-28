@@ -6,7 +6,8 @@
 不要把 coverage Mask 与 `ImageEx(..., {mask = ...})` 混为一谈。后者只影响一次
 图像绘制；coverage Mask 可以裁剪回调里的 shape、图像、文字与原生绘制。
 
-普通 GLua 使用 `MGFX.*`；Lux 通过 `mgfx.api` 上对应的 lowerCamelCase 方法调用。
+普通 GLua 调用局部 API owner 上的 PascalCase 方法（下方签名把这个局部变量写作
+`MGFX`）；Lux 通过 `mgfx.api` 上对应的 lowerCamelCase 方法调用。
 
 ## API 总览
 

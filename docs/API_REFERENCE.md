@@ -4,7 +4,9 @@ This page is kept as a compatibility entry for older links.
 
 Use the task reference pages instead. Start with [Plain GLua Quick Start](./guide/glua), [Lux Quick Start](./guide/lux), or [Core Concepts](./guide/concepts) if you are still learning the API shape.
 
-These pages are documentation groups, not module names; all listed functions are available through `MGFX.*` in GLua and `mgfx.api.*` in Lux.
+These pages are documentation groups, not module names. In Plain GLua, `MGFX`
+in signatures denotes the local table returned by `include("mgfx/init.lua")`;
+Lux exposes the same functions through `mgfx.api.*`.
 
 - [Frame and debug API](./api-reference/frame)
 - [Coverage Masks, Clip, and Self-Clipping](./api-reference/masks-and-clip)

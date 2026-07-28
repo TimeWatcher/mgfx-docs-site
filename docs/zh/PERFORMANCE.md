@@ -202,7 +202,7 @@ Plain text 走原生 GMod text。MGFX text composer 只适合需要 shader 效�
 
 ## 性能分析
 
-开发时：
+先安装 `mgfx/devtools.lua` 或 `@lux/mgfx/devtools`。开发时：
 
 ```text
 mgfx_profile 1

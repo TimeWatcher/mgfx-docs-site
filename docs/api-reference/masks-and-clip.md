@@ -8,8 +8,9 @@ Do not confuse coverage Masks with `ImageEx(..., {mask = ...})`. An image mask
 belongs to one image draw. A coverage Mask can clip any mixture of shapes,
 images, text, and native drawing in a callback.
 
-Plain GLua uses `MGFX.*`. Lux exposes the same facade as lowerCamelCase methods
-on `mgfx.api`.
+Plain GLua calls the PascalCase methods on its local API owner (named `MGFX` in
+the signatures below). Lux exposes the same facade as lowerCamelCase methods on
+`mgfx.api`.
 
 ## API summary
 

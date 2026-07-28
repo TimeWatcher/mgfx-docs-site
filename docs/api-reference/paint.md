@@ -2,7 +2,9 @@
 
 Paint helpers create records consumed by shape, image, widget, and text style fields.
 
-Plain GLua calls `MGFX.*`. Lux calls the same helpers as lowerCamelCase methods on `mgfx.api`.
+Plain GLua calls the PascalCase methods on its local API owner (named `MGFX` in
+the signatures below). Lux calls the same helpers as lowerCamelCase methods on
+`mgfx.api`.
 
 ## Paint Functions
 

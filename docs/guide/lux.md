@@ -16,7 +16,8 @@ Install from a local checkout:
 luxc install @lux/mgfx --from C:\Development\gmod\lux-mgfx
 ```
 
-Normal Lux code should import the public facade and call `mgfx.api.*`. You only need `installGlobal("MGFX")` when exposing a GLua-style global table to non-Lux code.
+Normal Lux code should import the public facade and call `mgfx.api.*`. Importing
+`@lux/mgfx` does not install globals, console commands, hooks, or examples.
 
 Put panel drawing code in a client-realm Lux source file.
 
@@ -44,18 +45,20 @@ fn PANEL:Paint(w, h) {
 ```
 
 ```lua [GLua Equivalent]
-function PANEL:Paint(w, h)
-    MGFX.StartPanel(self, w, h)
+local mgfx = include("mgfx/init.lua")
 
-    MGFX.RoundedBoxEx(0, 0, w, h, {
+function PANEL:Paint(w, h)
+    mgfx.StartPanel(self, w, h)
+
+    mgfx.RoundedBoxEx(0, 0, w, h, {
         radius = 10,
         fill = Color(18, 24, 32, 230),
         shadow = {x = 0, y = 6, blur = 14, color = Color(0, 0, 0, 110)},
     })
 
-    MGFX.Text("READY", "DermaDefaultBold", 16, 18, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+    mgfx.Text("READY", "DermaDefaultBold", 16, 18, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
-    MGFX.EndPanel()
+    mgfx.EndPanel()
 end
 ```
 
@@ -67,12 +70,12 @@ The two runtimes expose the same behavior through different naming styles:
 
 | GLua | Lux |
 | --- | --- |
-| `MGFX.StartPanel` | `mgfx.api.startPanel` |
-| `MGFX.RoundedBoxEx` | `mgfx.api.roundedBoxEx` |
-| `MGFX.ProgressBarEx` | `mgfx.api.progressBarEx` |
-| `MGFX.LinearGradient` | `mgfx.api.linearGradient` |
-| `MGFX.WornPattern` | `mgfx.api.wornPattern` |
-| `MGFX.TextEx` | `mgfx.api.textEx` |
+| `mgfx.StartPanel` | `mgfx.api.startPanel` |
+| `mgfx.RoundedBoxEx` | `mgfx.api.roundedBoxEx` |
+| `mgfx.ProgressBarEx` | `mgfx.api.progressBarEx` |
+| `mgfx.LinearGradient` | `mgfx.api.linearGradient` |
+| `mgfx.WornPattern` | `mgfx.api.wornPattern` |
+| `mgfx.TextEx` | `mgfx.api.textEx` |
 
 The old `@lux/mgfx/paint` package is not an application entry point. Paint records such as gradients and patterns are created through `mgfx.api` helpers and passed as `fill`, `track`, `pattern`, or related style fields.
 
@@ -82,13 +85,24 @@ Only install a global table when a GLua panel or legacy integration expects `MGF
 
 ```lux
 import * as mgfx from "@lux/mgfx"
+import { installGlobal } from "@lux/mgfx/global"
 
 client {
-  mgfx.installGlobal("MGFX");
+  installGlobal("MGFX", mgfx.create());
 }
 ```
 
-New Lux UI code should keep using `mgfx.api.*`.
+New Lux UI code should keep using `mgfx.api.*`. Development commands are a
+separate opt-in through `@lux/mgfx/devtools`:
+
+```lux
+import * as mgfx from "@lux/mgfx"
+import * as devtools from "@lux/mgfx/devtools"
+
+client {
+  devtools.install(mgfx.create());
+}
+```
 
 ## Next
 

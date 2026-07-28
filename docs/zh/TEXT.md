@@ -120,7 +120,7 @@ Composer text 是昂贵路径。Cache hit 可以避免 rebake，但仍然要付 
 
 高 churn FX text 会为每个不同字符串占用一个 whole-run atlas entry。Counter 不需要 shader effects 时直接原生绘制；确实需要特效时，尽量让取值集合稳定、预热已知值，或者接受 bake 成本。
 
-有用 cvar：
+安装 devtools 后可使用这些 cvar：
 
 ```text
 mgfx_text_composed 0/1
@@ -129,7 +129,7 @@ mgfx_text_composed_budget 6
 
 `mgfx_text_composed_budget` 限制每帧 cache miss bake 数。预算耗尽时，该文字本帧走 native fallback，之后再尝试 composer。
 
-`mgfx_text_status` 是第一健康检查。稳定 FX text 帧里这些值应该低或接近 0：
+安装 devtools 后，`mgfx_text_status` 是第一健康检查。稳定 FX text 帧里这些值应该低或接近 0：
 
 ```text
 fallbackBatches

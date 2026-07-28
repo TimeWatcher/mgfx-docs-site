@@ -2,7 +2,9 @@
 
 MGFX text keeps plain text cheap and routes shader effects through a composer only when needed.
 
-Plain GLua calls `MGFX.*`. Lux calls the same APIs as lowerCamelCase methods on `mgfx.api`.
+Plain GLua calls the PascalCase methods on its local API owner (named `MGFX` in
+the signatures below). Lux calls the same APIs as lowerCamelCase methods on
+`mgfx.api`.
 
 ## Functions
 

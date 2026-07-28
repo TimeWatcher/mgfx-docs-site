@@ -30,7 +30,10 @@ Callers compute the current visual state and submit draw calls every frame.
 
 ## Module Boundaries
 
-These are internal maintenance boundaries, not user-facing entry points. Application code should call `MGFX.*` or `mgfx.api.*`; it should not decide whether a draw call belongs to `roundrect`, `primitives`, `widgets`, `paint`, or `style`.
+These are internal maintenance boundaries, not user-facing entry points.
+Application code should call the Plain GLua table returned by `mgfx/init.lua` or
+the Lux `mgfx.api.*` facade; it should not decide whether a draw call belongs to
+`roundrect`, `primitives`, `widgets`, `paint`, or `style`.
 
 | Area | Responsibility |
 | --- | --- |
@@ -92,4 +95,17 @@ The project is still stabilizing, so incompatible public API improvements are al
 
 ## Runtime Packages
 
-Lux projects use `@lux/mgfx`. Plain GLua projects use the precompiled loader and global `MGFX.*` facade. Both routes should expose the same public behavior.
+Both implementations separate the renderer core from optional integration
+layers:
+
+| Layer | Plain GLua | Lux |
+| --- | --- | --- |
+| Core library | `include("mgfx/init.lua")` | `@lux/mgfx` |
+| Global compatibility | `mgfx/global.lua` | `@lux/mgfx/global` |
+| Commands and diagnostics | `mgfx/devtools.lua` | `@lux/mgfx/devtools` |
+| Examples | `mgfx/examples.lua` | explicit demo package imports |
+
+Importing or including the core must not install public globals, console
+commands, hooks, diagnostic cvars, or examples. Both core routes expose the same
+public rendering behavior; adapters are installed only by integrations that
+need them.

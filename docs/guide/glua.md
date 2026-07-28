@@ -14,25 +14,35 @@ garrysmod/addons/mgfx/
   addon.json
 ```
 
-Garry's Mod loads the autorun files automatically. After the client loader runs, call the public `MGFX.*` API from client-side drawing code. Do not include implementation files from `lua/mgfx` directly.
+From client code, include the public entry point and keep its return value local:
+
+```lua
+local mgfx = include("mgfx/init.lua")
+```
+
+Do not include `cl_mgfx*.lua` implementation files directly. The bundled
+autorun files are a legacy adapter that installs a global table and devtools;
+new addons and gamemodes should use `init.lua`.
 
 ## First Panel
 
 ::: code-group
 
 ```lua [GLua]
-function PANEL:Paint(w, h)
-    MGFX.StartPanel(self, w, h)
+local mgfx = include("mgfx/init.lua")
 
-    MGFX.RoundedBoxEx(0, 0, w, h, {
+function PANEL:Paint(w, h)
+    mgfx.StartPanel(self, w, h)
+
+    mgfx.RoundedBoxEx(0, 0, w, h, {
         radius = 10,
         fill = Color(18, 24, 32, 230),
         shadow = {x = 0, y = 6, blur = 14, color = Color(0, 0, 0, 110)},
     })
 
-    MGFX.Text("READY", "DermaDefaultBold", 16, 18, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+    mgfx.Text("READY", "DermaDefaultBold", 16, 18, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
 
-    MGFX.EndPanel()
+    mgfx.EndPanel()
 end
 ```
 
@@ -63,17 +73,17 @@ fn PANEL:Paint(w, h) {
 
 ```lua
 hook.Add("HUDPaint", "MyMGFXHud", function()
-    MGFX.StartScreen()
+    mgfx.StartScreen()
 
     local x, y = 32, ScrH() - 72
-    MGFX.ProgressBarEx(x, y, 220, 14, LocalPlayer():Health() / 100, {
+    mgfx.ProgressBarEx(x, y, 220, 14, LocalPlayer():Health() / 100, {
         radius = 7,
         padding = 2,
         track = Color(255, 255, 255, 22),
-        fill = MGFX.LinearGradient(0, 0, 1, 0, Color(255, 96, 78), Color(255, 190, 66)),
+        fill = mgfx.LinearGradient(0, 0, 1, 0, Color(255, 96, 78), Color(255, 190, 66)),
     })
 
-    MGFX.EndScreen()
+    mgfx.EndScreen()
 end)
 ```
 
@@ -81,16 +91,29 @@ Use `StartScreen` only for screen-space HUD and overlay drawing. VGUI panels sho
 
 ## Names
 
-Plain GLua uses PascalCase names on the global facade:
+Plain GLua uses PascalCase names on the returned API table:
 
 | Task | GLua |
 | --- | --- |
-| Frame start | `MGFX.StartPanel(...)` |
-| Shape | `MGFX.RoundedBoxEx(...)` |
-| Gradient | `MGFX.LinearGradient(...)` |
+| Frame start | `mgfx.StartPanel(...)` |
+| Shape | `mgfx.RoundedBoxEx(...)` |
+| Gradient | `mgfx.LinearGradient(...)` |
 | Image mask | `style.mask = {kind = "circle"}` |
-| Shared antialiased clip | `MGFX.Mask(...)` + `MGFX.Clip(...)` |
-| Text | `MGFX.TextEx(...)` |
+| Shared antialiased clip | `mgfx.Mask(...)` + `mgfx.Clip(...)` |
+| Text | `mgfx.TextEx(...)` |
+
+## Optional Adapters
+
+Install only the layers your integration needs:
+
+```lua
+include("mgfx/global.lua")("MGFX", mgfx) -- legacy GLua consumers
+include("mgfx/devtools.lua")(mgfx)       -- commands and diagnostic cvars
+```
+
+On the server, distribute the core library with
+`include("mgfx/distribute.lua")()`. Pass `{examples = true}` only when the demo
+files are required; examples are not distributed or loaded by default.
 
 The Lux equivalents use lowerCamelCase under `mgfx.api`.
 

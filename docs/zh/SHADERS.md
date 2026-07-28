@@ -39,14 +39,15 @@ python .\shadersrc\mgfx\build.py
 shaderpack 版本是 Unix timestamp：
 
 ```lua
-MGFXShaderPack.Version = "..."
+local shaderPack = include("mgfx/cl_mgfx_shaderpack.lua")
+print(shaderPack.Version)
 ```
 
-进游戏后用 `mgfx_status` 确认当前挂载版本。
+安装 devtools 后，可在游戏中用 `mgfx_status` 确认当前挂载版本。
 
 ## 诊断开关
 
-开发时可以打开：
+安装 `mgfx/devtools.lua` 或 `@lux/mgfx/devtools` 后，开发时可以打开：
 
 ```text
 mgfx_profile 1
@@ -104,15 +105,28 @@ GMod/Source 的矩阵索引会按列抵达 HLSL：`matrix[0]` 读到的是 `1,5,
 
 本地 GMod benchmark 中，16 个独立 `SetFloat` 大约是 `SetUnpacked + SetMatrix` 的 7 倍成本，所以 hot shape path 不应回到逐 float 上传。
 
-## Image Mask Sampler 布局
+## Image sampler 与 material capture
 
-`mgfx_image_mask` 的 `$basetexture` 固定为 `color/white`。它只是 `DrawTexturedRectUV` 半像素修正所依赖的稳定 mapping carrier，不是真正要显示的图像。Sampler 分工如下：
+`mgfx_roundrect_texture`、`mgfx_chamfer_texture` 和 `mgfx_image_mask` 的
+`$basetexture` 都固定为 `color/white`。它只是 `DrawTexturedRectUV` 半像素
+修正所依赖的稳定 mapping carrier，不是真正要显示的图像。运行时 sampler
+分工如下：
 
 - `TexBase`：固定的局部 UV mapping carrier。
 - `Tex1`：源图像或 render target。
-- `Tex2`：可选的纹理 mask。
+- `Tex2`：`mgfx_image_mask` 可选的纹理 mask。
+
+`screenspace_general` 材质模板中的每个运行时 sampler slot 都必须用非空纹理名初始化。空的 `$textureN` 不会被 Source 注册为 texture 类型，因此之后的 `SetTexture` 会被拒绝，shader 最终只能采到 error texture。
 
 修正后的 `i.uv` 只表示归一化 shape 坐标，再由 `SOURCE_UV` 映射到源图。不要把源图重新绑定到 `$basetexture`；否则材质 mapping 尺寸会把源图采样和 procedural SDF 坐标重新耦合，circle 和 rounded mask 的 coverage 会发生畸变。
+
+`IMaterial` 始终是会被执行的 source。`ImageUV`、无正半径的 `Image`，以及
+不需要 effect 的 `ImageEx` 不依赖 MGFX image shader，会直接绑定原始材质；
+其余 image draw 则在完整的 render-state transaction 内先把原材质绘制到两张
+可复用 full-frame scratch RT 之一：slot 1 保存 source，slot 2 保存可选 material
+mask，随后分别绑定到 `Tex1` / `Tex2`。这样 `AnimatedTexture` 等 material proxy
+会真正运行，而不是被一次 `$basetexture` 读取替代。source-alpha mask 直接复用
+slot 1，不重复捕获。
 
 ## Clip Composite 与 `$basetexture` 陷阱
 

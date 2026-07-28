@@ -62,15 +62,29 @@ Rules:
 - Do not invent temporary registers such as `$c8`; they may compile but read as zero or undefined in GMod.
 - Document parameter layout changes in this file.
 
-## Image Mask Samplers
+## Image Samplers and Material Capture
 
-`mgfx_image_mask` keeps `$basetexture` fixed to `color/white`. It is the stable mapping carrier used by the `DrawTexturedRectUV` half-pixel correction, not the image being rendered. The shader sampler layout is:
+`mgfx_roundrect_texture`, `mgfx_chamfer_texture`, and `mgfx_image_mask` keep
+`$basetexture` fixed to `color/white`. It is the stable mapping carrier used by
+the `DrawTexturedRectUV` half-pixel correction, not the image being rendered.
+Their runtime sampler layout is:
 
 - `TexBase`: fixed local-UV mapping carrier.
 - `Tex1`: source image or render target.
-- `Tex2`: optional texture mask.
+- `Tex2`: optional texture mask for `mgfx_image_mask`.
+
+Every runtime sampler slot in the `screenspace_general` material template is initialized with a non-empty texture name. An empty `$textureN` value is not registered as a texture-typed variable by Source, so a later `SetTexture` call is rejected and the shader samples the error texture.
 
 The corrected `i.uv` is reserved for normalized shape coordinates, while `SOURCE_UV` maps it into the source image. Do not bind a source image back to `$basetexture`: changing the material mapping dimensions couples source sampling to procedural SDF coordinates and distorts circle and rounded-mask coverage.
+
+An `IMaterial` remains an executable source. A draw that does not require an
+MGFX image shader—`ImageUV`, radius-free `Image`, or effect-free `ImageEx`—binds
+it directly. Other image draws execute it into one of two reusable full-frame
+scratch targets—one source slot and one optional mask slot—under a balanced
+render-state transaction, then bind that result to `Tex1` or `Tex2`. This is
+what preserves `AnimatedTexture` and other material proxies without allowing
+the image shader to replace the original material. Source-alpha masks reuse
+the source slot rather than capturing it again.
 
 ## ShapeClip Composite
 

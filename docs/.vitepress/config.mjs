@@ -280,6 +280,8 @@ const englishNav = [
   { text: "API Reference", link: "/api-reference/" },
   { text: "Performance", link: "/PERFORMANCE" },
   { text: "Shaders", link: "/SHADERS" },
+  { text: "Changelog", link: "/CHANGELOG" },
+  { text: "License", link: "/LICENSE" },
 ];
 
 const chineseNav = [
@@ -296,6 +298,8 @@ const chineseNav = [
   { text: "详细 API", link: "/zh/api-reference/" },
   { text: "性能", link: "/zh/PERFORMANCE" },
   { text: "Shader 与打包", link: "/zh/SHADERS" },
+  { text: "更新日志", link: "/zh/CHANGELOG" },
+  { text: "授权说明", link: "/zh/LICENSE" },
 ];
 
 const englishSidebar = [
@@ -324,6 +328,8 @@ const englishSidebar = [
       },
       { text: "Text Rendering", link: "/TEXT" },
       { text: "Performance", link: "/PERFORMANCE" },
+      { text: "Changelog", link: "/CHANGELOG" },
+      { text: "License", link: "/LICENSE" },
     ],
   },
   {
@@ -370,6 +376,8 @@ const chineseSidebar = [
       },
       { text: "文字渲染", link: "/zh/TEXT" },
       { text: "性能", link: "/zh/PERFORMANCE" },
+      { text: "更新日志", link: "/zh/CHANGELOG" },
+      { text: "授权说明", link: "/zh/LICENSE" },
     ],
   },
   {

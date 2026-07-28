@@ -35,6 +35,7 @@ npm run preview
 ```text
 docs/
   index.md                English home
+  LICENSE.md              runtime-license summary
   API.md                  English API overview
   API_REFERENCE.md        compatibility entry
   api-reference/
@@ -47,6 +48,7 @@ docs/
     paint.md
   zh/
     index.md              Simplified Chinese home
+    LICENSE.md            Simplified Chinese license summary
     API.md
     API_REFERENCE.md
     api-reference/
@@ -72,6 +74,10 @@ rebuild.
 When changing public signatures, update both the English and Simplified Chinese
 pages. The conceptual overview and the detailed API family page should be
 updated together.
+
+When changing runtime entry behavior or licensing, update the matching English
+and Simplified Chinese guide/summary pages and the repository license notices in
+the same change.
 
 ## Deployment
 

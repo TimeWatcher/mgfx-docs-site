@@ -2,7 +2,8 @@
 
 这个页面保留给旧链接使用。新的详细参考已经按绘制任务拆分：
 
-这些页面只是文档分组，不是用户需要选择的模块名。普通 GLua 使用 `MGFX.*`，Lux 使用 `@lux/mgfx` 的 `mgfx.api.*`。
+这些页面只是文档分组，不是用户需要选择的模块名。Plain GLua 签名中的 `MGFX`
+表示 `include("mgfx/init.lua")` 返回的局部表；Lux 使用 `@lux/mgfx` 的 `mgfx.api.*`。
 
 - [分组入口](./api-reference/)
 - [帧作用域与调试](./api-reference/frame)

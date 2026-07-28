@@ -14,24 +14,32 @@ garrysmod/addons/mgfx/
   addon.json
 ```
 
-Garry's Mod 会自动执行 autorun loader。客户端 loader 完成后，在客户端绘制代码中调用 `MGFX.*`。不要直接 include `lua/mgfx` 下的实现文件。
+在客户端代码中 include 公共入口，并把返回的 API 表保存在局部变量：
+
+```lua
+local mgfx = include("mgfx/init.lua")
+```
+
+不要直接 include `cl_mgfx*.lua` 实现文件。仓库中的 autorun 文件是兼容旧用法的适配层，会安装全局表和 devtools；新的 addon 与 gamemode 应直接使用 `init.lua`。
 
 ## 第一个 Panel
 
 ::: code-group
 
 ```lua [GLua]
-function PANEL:Paint(w, h)
-    MGFX.StartPanel(self, w, h)
+local mgfx = include("mgfx/init.lua")
 
-    MGFX.RoundedBoxEx(0, 0, w, h, {
+function PANEL:Paint(w, h)
+    mgfx.StartPanel(self, w, h)
+
+    mgfx.RoundedBoxEx(0, 0, w, h, {
         radius = 10,
         fill = Color(18, 24, 32, 230),
         shadow = {x = 0, y = 6, blur = 14, color = Color(0, 0, 0, 110)},
     })
 
-    MGFX.Text("READY", "DermaDefaultBold", 16, 18, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
-    MGFX.EndPanel()
+    mgfx.Text("READY", "DermaDefaultBold", 16, 18, color_white, TEXT_ALIGN_LEFT, TEXT_ALIGN_CENTER)
+    mgfx.EndPanel()
 end
 ```
 
@@ -61,17 +69,17 @@ fn PANEL:Paint(w, h) {
 
 ```lua
 hook.Add("HUDPaint", "MyMGFXHud", function()
-    MGFX.StartScreen()
+    mgfx.StartScreen()
 
     local x, y = 32, ScrH() - 72
-    MGFX.ProgressBarEx(x, y, 220, 14, LocalPlayer():Health() / 100, {
+    mgfx.ProgressBarEx(x, y, 220, 14, LocalPlayer():Health() / 100, {
         radius = 7,
         padding = 2,
         track = Color(255, 255, 255, 22),
-        fill = MGFX.LinearGradient(0, 0, 1, 0, Color(255, 96, 78), Color(255, 190, 66)),
+        fill = mgfx.LinearGradient(0, 0, 1, 0, Color(255, 96, 78), Color(255, 190, 66)),
     })
 
-    MGFX.EndScreen()
+    mgfx.EndScreen()
 end)
 ```
 
@@ -81,12 +89,24 @@ screen-space HUD 和 overlay 使用 `StartScreen`；VGUI panel 使用 `StartPane
 
 | 任务 | GLua |
 | --- | --- |
-| 开始 frame | `MGFX.StartPanel(...)` |
-| 绘制形状 | `MGFX.RoundedBoxEx(...)` |
-| 创建渐变 | `MGFX.LinearGradient(...)` |
+| 开始 frame | `mgfx.StartPanel(...)` |
+| 绘制形状 | `mgfx.RoundedBoxEx(...)` |
+| 创建渐变 | `mgfx.LinearGradient(...)` |
 | 创建图像遮罩 | `style.mask = {kind = "circle"}` |
-| 共享抗锯齿裁剪 | `MGFX.Mask(...)` + `MGFX.Clip(...)` |
-| 特效文字 | `MGFX.TextEx(...)` |
+| 共享抗锯齿裁剪 | `mgfx.Mask(...)` + `mgfx.Clip(...)` |
+| 特效文字 | `mgfx.TextEx(...)` |
+
+## 可选适配层
+
+只安装当前集成真正需要的层：
+
+```lua
+include("mgfx/global.lua")("MGFX", mgfx) -- 兼容旧 GLua 调用方
+include("mgfx/devtools.lua")(mgfx)       -- 命令与诊断 cvar
+```
+
+服务端通过 `include("mgfx/distribute.lua")()` 分发核心库。只有确实需要 demo
+文件时才传入 `{examples = true}`；默认不会分发或加载示例。
 
 Lux 等价 API 位于 `mgfx.api`，名称使用 lowerCamelCase。
 

@@ -12,9 +12,11 @@
 ::: code-group
 
 ```lua [GLua]
-MGFX.RoundedBoxEx(16, 16, 220, 48, {
+local mgfx = include("mgfx/init.lua")
+
+mgfx.RoundedBoxEx(16, 16, 220, 48, {
     radius = 8,
-    fill = MGFX.LinearGradient(0, 0, 1, 0, Color(80, 170, 255), Color(90, 220, 180)),
+    fill = mgfx.LinearGradient(0, 0, 1, 0, Color(80, 170, 255), Color(90, 220, 180)),
 })
 ```
 
@@ -32,16 +34,16 @@ client fn drawPanel() {
 
 :::
 
-普通 GLua 使用 `MGFX.*` 的 PascalCase 名称；Lux 使用 `mgfx.api.*` 的 lowerCamelCase 名称。渲染行为和 style 字段相同。
+普通 GLua 使用 `mgfx/init.lua` 返回表上的 PascalCase 名称；Lux 使用 `mgfx.api.*` 的 lowerCamelCase 名称。渲染行为和 style 字段相同。
 
 | GLua | Lux |
 | --- | --- |
-| `MGFX.StartPanel` | `mgfx.api.startPanel` |
-| `MGFX.RoundedBoxEx` | `mgfx.api.roundedBoxEx` |
-| `MGFX.ImageEx` | `mgfx.api.imageEx` |
-| `MGFX.ProgressBarEx` | `mgfx.api.progressBarEx` |
-| `MGFX.LinearGradient` | `mgfx.api.linearGradient` |
-| `MGFX.TextEx` | `mgfx.api.textEx` |
+| `mgfx.StartPanel` | `mgfx.api.startPanel` |
+| `mgfx.RoundedBoxEx` | `mgfx.api.roundedBoxEx` |
+| `mgfx.ImageEx` | `mgfx.api.imageEx` |
+| `mgfx.ProgressBarEx` | `mgfx.api.progressBarEx` |
+| `mgfx.LinearGradient` | `mgfx.api.linearGradient` |
+| `mgfx.TextEx` | `mgfx.api.textEx` |
 
 ## 应该看哪一页
 

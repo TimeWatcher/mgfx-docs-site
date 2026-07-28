@@ -42,6 +42,7 @@ npm run docs:preview
 ```text
 docs/
   index.md                英文首页
+  LICENSE.md              英文 runtime 授权摘要
   API.md                  英文 API 总览
   API_REFERENCE.md        旧详细 API URL 的兼容入口
   api-reference/
@@ -54,6 +55,7 @@ docs/
     paint.md
   zh/
     index.md              简体中文首页
+    LICENSE.md            简体中文授权摘要
     API.md
     API_REFERENCE.md
     api-reference/
@@ -77,14 +79,16 @@ site_build/
 
 ## 双语维护
 
-MGFX 文档面向 Lux 开发者，因此中英文内容应表达同一套当前 Lux package 架构：
+MGFX 文档同时面向 Plain GLua 与 Lux 开发者，因此中英文内容应表达同一套当前
+library-first 架构：
 
 - 英文页面位于 `docs/` 根目录。
 - 中文页面位于 `docs/zh/`。
 - 改 public API 时，同步更新 `API.md` 和对应的 `api-reference/*.md`。
-- 改使用方式、package 入口或全局 facade 时，同步更新 `USAGE.md`。
+- 改使用方式、package 入口或可选适配层时，同步更新 `USAGE.md`。
 - 改 module part、realm、loader 或 shaderpack 机制时，同步更新 `ARCHITECTURE.md`
   和 `SHADERS.md`。
+- 改 runtime 授权时，同步更新 `LICENSE.md`、仓库根授权文件和 NOTICE。
 
 `API_REFERENCE.md` 只保留为旧 URL 的兼容入口。详细 API 现在按功能族拆分维护，不依赖
 旧 Cloudflare 部署，也不要求本地存在旧站点的生成数据。

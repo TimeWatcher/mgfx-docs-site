@@ -12,9 +12,11 @@ This page stays at `/API` for older links. New readers should start with the run
 ::: code-group
 
 ```lua [GLua]
-MGFX.RoundedBoxEx(16, 16, 220, 48, {
+local mgfx = include("mgfx/init.lua")
+
+mgfx.RoundedBoxEx(16, 16, 220, 48, {
     radius = 8,
-    fill = MGFX.LinearGradient(0, 0, 1, 0, Color(80, 170, 255), Color(90, 220, 180)),
+    fill = mgfx.LinearGradient(0, 0, 1, 0, Color(80, 170, 255), Color(90, 220, 180)),
 })
 ```
 
@@ -32,16 +34,16 @@ client fn drawPanel() {
 
 :::
 
-Plain GLua uses PascalCase names on `MGFX.*`. Lux uses lowerCamelCase names on `mgfx.api.*`. The renderer behavior and style fields are the same.
+Plain GLua uses PascalCase names on the table returned by `mgfx/init.lua`. Lux uses lowerCamelCase names on `mgfx.api.*`. The renderer behavior and style fields are the same.
 
 | GLua | Lux |
 | --- | --- |
-| `MGFX.StartPanel` | `mgfx.api.startPanel` |
-| `MGFX.RoundedBoxEx` | `mgfx.api.roundedBoxEx` |
-| `MGFX.ImageEx` | `mgfx.api.imageEx` |
-| `MGFX.ProgressBarEx` | `mgfx.api.progressBarEx` |
-| `MGFX.LinearGradient` | `mgfx.api.linearGradient` |
-| `MGFX.TextEx` | `mgfx.api.textEx` |
+| `mgfx.StartPanel` | `mgfx.api.startPanel` |
+| `mgfx.RoundedBoxEx` | `mgfx.api.roundedBoxEx` |
+| `mgfx.ImageEx` | `mgfx.api.imageEx` |
+| `mgfx.ProgressBarEx` | `mgfx.api.progressBarEx` |
+| `mgfx.LinearGradient` | `mgfx.api.linearGradient` |
+| `mgfx.TextEx` | `mgfx.api.textEx` |
 
 ## What To Read
 

@@ -1,291 +1,205 @@
 # 使用 MGFX
 
-MGFX 以 Lux package `@lux/mgfx` 的形式维护，但有两种消费路径：
+MGFX 是同时提供 Plain GLua 与 Lux 实现的库。新的集成应显式加载 renderer core，并把
+全局兼容、开发命令和示例留在默认路径之外。
 
-- **给 Plain GLua 使用**：挂载生成好的 loader 分发，在现有 Lua 文件里调用安装后的
-  `MGFX.*` facade。
-- **在 Lux 中使用**：在 Lux 源码里导入 `@lux/mgfx`，由 `luxc gmod build` 把 package
-  编译进 addon 输出。
+| 层 | Plain GLua | Lux |
+| --- | --- | --- |
+| 核心库 | `include("mgfx/init.lua")` | `@lux/mgfx` |
+| 全局兼容 | `mgfx/global.lua` | `@lux/mgfx/global` |
+| 命令与诊断 | `mgfx/devtools.lua` | `@lux/mgfx/devtools` |
+| 示例 | `mgfx/examples.lua` | 显式导入 demo package |
 
-新的 Lux 代码应导入一次 `@lux/mgfx`，然后统一通过 `mgfx.api.*` 调用。现有 GLua
-panel 可以继续使用熟悉的 PascalCase facade，例如 `MGFX.StartPanel`、
-`MGFX.RoundedBoxEx`、`MGFX.LinearGradient` 和 `MGFX.TextEx`。
+核心入口不会安装公共全局、控制台命令、hook、诊断 cvar 或示例。
 
 <span id="use-with-plain-glua"></span>
 
 ## 给 Plain GLua 使用
 
-当 addon 仍然是普通 GLua，或者你想在不引入 Lux 源码的情况下使用 MGFX 时，可以使用
-生成好的 loader 分发。把 MGFX release 里的 `lua/` 树复制或挂载到 addon 里。客户端
-loader 会初始化 MGFX，并默认安装 `_G.MGFX`。
+普通 Garry's Mod addon 或 gamemode 使用 `lua-mgfx`。库文件位于 `lua/mgfx`，客户端
+代码只 include 公共入口。
 
 ```text
 my_addon/
   lua/
-    autorun/
-      mgfx.lua
     mgfx/
-      loader_shared.lua
-      loader_client.lua
-      loader_server.lua
+      init.lua
+      distribute.lua
+      global.lua
+      devtools.lua
       ...
+  materials/
+  resource/
 ```
 
-loader 跑起来后，直接通过 `MGFX.*` 绘制：
+### 分发库文件
+
+在服务端代码中调用分发 helper：
 
 ```lua
-function PANEL:Paint(w, h)
-  MGFX.StartPanel(self, w, h)
-
-  MGFX.RoundedBoxEx(0, 0, w, h, {
-    radius = 10,
-    fill = MGFX.LinearGradient(
-      0,
-      0,
-      1,
-      1,
-      Color(30, 130, 255, 230),
-      Color(255, 210, 110, 230)
-    ),
-    backdrop = { blur = 8, tint = Color(0, 8, 12, 120) },
-  })
-
-  MGFX.EndPanel()
+if SERVER then
+    local distribute = include("mgfx/distribute.lua")
+    distribute()
 end
 ```
 
-这个 plain GLua 分发不是手写旧 loader，也不是 package 的内联拷贝。它仍然来自同一份
-Lux MGFX source，只是 loader 已经生成好，并且为非 Lux 调用方安装了全局 facade。
+它会发送核心 Lua 文件与 shaderpack chunks，并注册库内字体。如果字体由另一个 addon
+负责，可调用 `distribute({font = false})`。只有显式传入 `{examples = true}` 才会分发
+demo 文件。
+
+### 加载客户端 API
+
+把返回表保存在当前 addon 的局部变量中：
+
+```lua
+local mgfx = include("mgfx/init.lua")
+
+function PANEL:Paint(w, h)
+    mgfx.StartPanel(self, w, h)
+
+    mgfx.RoundedBoxEx(0, 0, w, h, {
+        radius = 10,
+        fill = mgfx.LinearGradient(
+            0, 0, 1, 1,
+            Color(30, 130, 255, 230),
+            Color(255, 210, 110, 230)
+        ),
+        backdrop = {blur = 8, tint = Color(0, 8, 12, 120)},
+    })
+
+    mgfx.EndPanel()
+end
+```
+
+不要直接 include `cl_mgfx*.lua`。`init.lua` 负责模块顺序、shaderpack 绑定，以及私有
+加载上下文的清理。
+
+### Plain GLua 可选适配层
+
+只有旧 GLua 代码依赖 `MGFX.*` 时才安装全局表：
+
+```lua
+include("mgfx/global.lua")("MGFX", mgfx)
+```
+
+只有开发环境需要命令和诊断 cvar 时才安装 devtools：
+
+```lua
+include("mgfx/devtools.lua")(mgfx)
+```
+
+示例依赖全局兼容层，并且必须显式分发与加载：
+
+```lua
+-- 服务端
+include("mgfx/distribute.lua")({examples = true})
+
+-- 客户端
+local mgfx = include("mgfx/init.lua")
+include("mgfx/global.lua")("MGFX", mgfx)
+include("mgfx/devtools.lua")(mgfx)
+include("mgfx/examples.lua")
+```
+
+仓库自带的 autorun 文件只用于兼容独立旧式安装：它们会分发库、安装 `_G.MGFX`
+并启用 devtools，但不会加载 demo。把 MGFX 作为无默认副作用的库嵌入其他 addon 时，
+不要复制这些 autorun 适配层。
 
 <span id="use-from-lux"></span>
 
 ## 在 Lux 中使用
 
-创建 Lux 项目并安装所需 package：
+安装 package set：
 
 ```powershell
-luxc init my_addon --std
-Push-Location my_addon
-luxc install @lux/mgfx --from github:TimeWatcher/lux-mgfx
-Pop-Location
+luxc install @lux/mgfx --from github:TimeWatcher/lux-mgfx --tag v0.1.0
 ```
 
-推荐的 `lux.toml`：
+导入 `@lux/mgfx` 不会安装全局、命令、hook、诊断 cvar 或示例。默认的 `mgfx.api`
+renderer 在第一次使用时才会创建：
 
-```toml
-package_id = "my_addon"
-bundle_id = "my_addon"
-
-[target.gmod]
-source_root = "src"
-out = "generated/lua"
-runtime_base = "lux/my_addon"
-autorun = true
-source_comments = "readable"
-
-[target.gmod.realm]
-unknown_external = "warn"
-
-[dependencies]
-"@lux/std" = { github = "TimeWatcher/lux-packages" }
-"@lux/mgfx" = { github = "TimeWatcher/lux-mgfx" }
-```
-
-Lux 没有 registry。manifest 用 `github`、`url` 或 `path` 指定具体 package 来源，
-`lux.lock` 记录解析后的依赖图。项目需要固定 package set 时，再使用 `tag`、
-`branch` 或 `commit`。
-
-## 导入 MGFX
-
-使用 Lux package id：
-
-::: code-group
-
-```lux [Lux]
-import * as mgfx from "@lux/mgfx"
-import * as console from "@lux/mgfx/console"
-
-client fn installMgfx() {
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-}
-```
-
-```lua [生成 Lua 形状]
-local mgfx = __lux_import("@lux/mgfx")
-local console = __lux_import("@lux/mgfx/console")
-
-local function installMgfx()
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-end
-```
-
-:::
-
-`@lux/mgfx` 是 client-only。Lux 的运行域检查器知道它的公开导出只在客户端可用。
-请从 `cl_` 文件导入，或者在显式标记为 `client` 的声明里使用。
-
-## 在 Lux 中绘制
-
-Lux 代码应通过 `mgfx.api.*` 绘制：
-
-::: code-group
-
-```lux [Lux]
+```lux
 import * as mgfx from "@lux/mgfx"
 
 client fn paintPanel(panel, w, h) {
-  mgfx.api.startPanel(panel, w, h)
-
-  mgfx.api.roundedBoxEx(0, 0, w, h, {
+  local draw = mgfx.api
+  draw.startPanel(panel, w, h)
+  draw.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.api.linearGradient(
+    fill = draw.linearGradient(
       0, 0, 1, 1,
       Color(20, 36, 48, 220),
       Color(38, 112, 138, 220)
     ),
-    backdrop = { blur = 7, tint = Color(0, 8, 12, 120) },
   })
-
-  mgfx.api.endPanel()
+  draw.endPanel();
 }
 ```
 
-```lua [生成 Lua 形状]
-local mgfx = __lux_import("@lux/mgfx")
-
-local function paintPanel(panel, w, h)
-  mgfx.api.startPanel(panel, w, h)
-  mgfx.api.roundedBoxEx(0, 0, w, h, {
-    radius = 10,
-    fill = mgfx.api.linearGradient(
-      0, 0, 1, 1,
-      Color(20, 36, 48, 220),
-      Color(38, 112, 138, 220)
-    ),
-    backdrop = {
-      blur = 7,
-      tint = Color(0, 8, 12, 120),
-    },
-  })
-  mgfx.api.endPanel()
-end
-```
-
-:::
-
-这是新 Lux 代码的推荐写法。它让 import 明确，给编译器提供运行域信息，也避免依赖
-全局变量。
-
-## 暴露 GLua facade
-
-如果旧 GLua 代码或 VGUI panel 仍然要调用 `MGFX.*`，可以在客户端安装一次全局 API：
-
-::: code-group
-
-```lux [Lux]
-import * as mgfx from "@lux/mgfx"
-import * as console from "@lux/mgfx/console"
-import * as demo from "@lux/mgfx/demo"
-import * as wheelDemo from "@lux/mgfx/wheel_demo"
-
-client fn installClientTools() {
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-  demo.install(api)
-  wheelDemo.install(api)
-}
-
-hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
-```
-
-```lua [生成 Lua 形状]
-local mgfx = __lux_import("@lux/mgfx")
-local console = __lux_import("@lux/mgfx/console")
-local demo = __lux_import("@lux/mgfx/demo")
-local wheelDemo = __lux_import("@lux/mgfx/wheel_demo")
-
-local function installClientTools()
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-  demo.install(api)
-  wheelDemo.install(api)
-end
-
-hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
-```
-
-:::
-
-安装后的 owner 使用贴近 GMod 习惯的 PascalCase 方法名，例如 `StartPanel`、
-`RoundedBoxEx`、`LinearGradient`、`TextEx`、`Status`。Lux 代码使用同一组操作的
-lower-case `mgfx.api.*` 名称，例如 `mgfx.api.roundedBoxEx`。
-
-## 构建 addon
-
-在项目根目录运行 GMod 后端：
-
-```powershell
-luxc gmod build --manifest lux.toml
-```
-
-构建过程会为 MGFX 做这些事情：
-
-- 从 `lux.lock` 解析 `@lux/mgfx`
-- 编译实际导入到的 MGFX module part
-- 保持所有 MGFX 导出为 client-only
-- 把 Lua 产物写入 `target.gmod.out`
-- 为生成 Lua 写出 source map
-- 生成 GMod loader 和可选的 `autorun` forwarder
-
-之后可以把生成的 `lua/` 树合并进 addon，或者把 manifest 的 `out`
-指向本地开发流程使用的 Lua 根目录。
-
-## 旧 Lua addon 到哪里去了
-
-原版 MGFX 是 `garrysmod/addons/mgfx` 下的直接 Lua addon。这个历史对 API 连续性有
-意义，但当前的 source of truth 是 Lux package。不要把旧的手写 autorun loader 复制
-到新项目里。
-
-Plain GLua 用户应该使用生成好的 loader 分发。Lux 用户应该导入 `@lux/mgfx`，
-再让 `luxc gmod build` 为对应项目生成 loader。
-
-Package 内部由 Lux module 和 module part 拆分。例如 `widgets/src/module.lux` 声明
-稳定的 part order：
+集成需要独立的 PascalCase owner 表时，调用 `mgfx.create()`：
 
 ```lux
-part order {
-  "module",
-  "cl_base",
-  "cl_progress",
-  "cl_rings",
-  "cl_image_source",
-  "cl_image_mask",
-  "cl_image_draw",
-  "cl_images",
-  "cl_text",
-  "cl_install",
+import * as mgfx from "@lux/mgfx"
+
+client fn createRenderer() = mgfx.create()
+```
+
+### Lux 可选适配层
+
+全局桥接与 devtools 是独立 package：
+
+```lux
+import * as mgfx from "@lux/mgfx"
+import * as devtools from "@lux/mgfx/devtools"
+import { installGlobal } from "@lux/mgfx/global"
+
+client fn installLegacyTools() {
+  local api = mgfx.create()
+  installGlobal("MGFX", api)
+  devtools.install(api);
 }
 ```
 
-这取代了数字文件名前缀和手工 include 顺序。它也让 Lux 的 module scope 规则保护内部
-helper，只导出明确的 public API。
+`@lux/mgfx/devtools` 会安装诊断 cvar、profiler API wrapper 和控制台命令，但不会
+导入 demo package。只有确实需要示例时才显式导入并安装：
+
+```lux
+import * as mgfx from "@lux/mgfx"
+import * as demo from "@lux/mgfx/demo"
+import * as devtools from "@lux/mgfx/devtools"
+import * as wheelDemo from "@lux/mgfx/wheel_demo"
+
+client fn installDemos() {
+  local api = mgfx.create()
+  devtools.install(api)
+  demo.install(api)
+  wheelDemo.install(api);
+}
+```
+
+在项目根目录运行 `luxc gmod build --manifest lux.toml`。Lux 只解析实际导入的 package
+graph，保留 client realm，写出生成 Lua 与 source map，并为当前 addon 生成配置好的
+loader/autorun forwarder。
 
 ## 运行时命令
 
-`@lux/mgfx/console` 可以安装开发命令：
+安装 devtools 后，可使用这些客户端命令：
 
 ```text
 mgfx_status
 mgfx_selftest
-mgfx_reload
-mgfx_demo
+mgfx_profile_status
+mgfx_profile_panels
+mgfx_profile_hud
 mgfx_text_status
 mgfx_text_cache_clear
+mgfx_text_atlas
 ```
 
-常用客户端 cvar：
+已移除的 `mgfx_reload` 与 `mgfx_hot_reload` 不属于新的入口模型。`mgfx_demo`、
+`mgfx_perf_demo`、`mgfx_wheel_demo` 等命令只有在对应示例安装后才存在。
+
+常用诊断 cvar：
 
 ```text
 mgfx_force_fallback 0/1
@@ -295,4 +209,10 @@ mgfx_text_composed 0/1
 mgfx_text_composed_budget 6
 ```
 
-开发时打开诊断；真正测试 FPS 时关闭诊断。
+进行代表性 FPS 测试时应关闭诊断。
+
+## 授权
+
+MGFX 使用 [Lux MGFX Community License 1.1](./LICENSE)。满足条件的社区服务器可以
+回收合理运营成本，也允许开发和分发免费插件；商业服务器变现、付费插件、客户委托和
+其他商业使用仍需另行取得书面授权。

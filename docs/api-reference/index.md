@@ -2,20 +2,30 @@
 
 This section is the task-oriented reference for public MGFX functions. It is intentionally about signatures, fields, return values, and caveats. Start with [Core Concepts](../guide/concepts) if you want the mental model first.
 
-These pages are documentation groups only. Application code should call `MGFX.*` in plain GLua or `mgfx.api.*` from `@lux/mgfx`; do not choose imports based on page names.
+These pages are documentation groups only. Plain GLua code calls the PascalCase
+methods on the table returned by `include("mgfx/init.lua")`; Lux code calls
+`mgfx.api.*` from `@lux/mgfx`. Do not choose imports based on page names.
+
+Function blocks on detailed pages use `MGFX` as a conventional local owner name:
+
+```lua
+local MGFX = include("mgfx/init.lua")
+```
+
+That notation does not require or install `_G.MGFX`.
 
 ## Runtime Names
 
 | Plain GLua | Lux |
 | --- | --- |
-| `MGFX.StartPanel(...)` | `mgfx.api.startPanel(...)` |
-| `MGFX.RoundedBoxEx(...)` | `mgfx.api.roundedBoxEx(...)` |
-| `MGFX.ImageEx(...)` | `mgfx.api.imageEx(...)` |
-| `MGFX.Mask(...)` | `mgfx.api.mask(...)` |
-| `MGFX.Clip(...)` | `mgfx.api.clip(...)` |
-| `MGFX.ProgressBarEx(...)` | `mgfx.api.progressBarEx(...)` |
-| `MGFX.LinearGradient(...)` | `mgfx.api.linearGradient(...)` |
-| `MGFX.TextEx(...)` | `mgfx.api.textEx(...)` |
+| `mgfx.StartPanel(...)` | `mgfx.api.startPanel(...)` |
+| `mgfx.RoundedBoxEx(...)` | `mgfx.api.roundedBoxEx(...)` |
+| `mgfx.ImageEx(...)` | `mgfx.api.imageEx(...)` |
+| `mgfx.Mask(...)` | `mgfx.api.mask(...)` |
+| `mgfx.Clip(...)` | `mgfx.api.clip(...)` |
+| `mgfx.ProgressBarEx(...)` | `mgfx.api.progressBarEx(...)` |
+| `mgfx.LinearGradient(...)` | `mgfx.api.linearGradient(...)` |
+| `mgfx.TextEx(...)` | `mgfx.api.textEx(...)` |
 
 API names, Lua parameter names, and shader terms are kept in English.
 

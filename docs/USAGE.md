@@ -1,300 +1,215 @@
 # Use MGFX
 
-MGFX is authored as the Lux package `@lux/mgfx`, but it has two supported
-consumption paths:
+MGFX is a library with two supported implementations. New integrations should
+load the renderer core explicitly and keep optional integration behavior out of
+the default path.
 
-- **Use with Plain GLua**: mount the generated loader distribution and call the
-  installed `MGFX.*` facade from existing Lua files.
-- **Use from Lux**: import `@lux/mgfx` from Lux source and let `luxc gmod build`
-  compile the package into the addon output.
+| Layer | Plain GLua | Lux |
+| --- | --- | --- |
+| Core library | `include("mgfx/init.lua")` | `@lux/mgfx` |
+| Global compatibility | `mgfx/global.lua` | `@lux/mgfx/global` |
+| Commands and diagnostics | `mgfx/devtools.lua` | `@lux/mgfx/devtools` |
+| Examples | `mgfx/examples.lua` | explicit demo package imports |
 
-New Lux code should import `@lux/mgfx` once and call the unified
-`mgfx.api.*` surface. Existing GLua panels can keep the familiar PascalCase
-facade such as `MGFX.StartPanel`, `MGFX.RoundedBoxEx`,
-`MGFX.LinearGradient`, and `MGFX.TextEx`.
+The core entry does not install a public global, console commands, hooks,
+diagnostic cvars, or examples.
 
 <span id="use-with-plain-glua"></span>
 
 ## Use with Plain GLua
 
-Use the generated loader distribution when an addon is still written in GLua or
-when you want to adopt MGFX without adopting Lux source in that project. Copy or
-mount the generated `lua/` tree from the MGFX release into the addon. The client
-loader initializes MGFX and installs `_G.MGFX` by default.
+Use `lua-mgfx` for an ordinary Garry's Mod addon or gamemode. The library files
+live under `lua/mgfx`; client code includes only the public entry point.
 
 ```text
 my_addon/
   lua/
-    autorun/
-      mgfx.lua
     mgfx/
-      loader_shared.lua
-      loader_client.lua
-      loader_server.lua
+      init.lua
+      distribute.lua
+      global.lua
+      devtools.lua
       ...
+  materials/
+  resource/
 ```
 
-After the loader has run, draw through `MGFX.*`:
+### Distribute the library
+
+From server code, call the distribution helper:
 
 ```lua
-function PANEL:Paint(w, h)
-  MGFX.StartPanel(self, w, h)
-
-  MGFX.RoundedBoxEx(0, 0, w, h, {
-    radius = 10,
-    fill = MGFX.LinearGradient(
-      0,
-      0,
-      1,
-      1,
-      Color(30, 130, 255, 230),
-      Color(255, 210, 110, 230)
-    ),
-    backdrop = { blur = 8, tint = Color(0, 8, 12, 120) },
-  })
-
-  MGFX.EndPanel()
+if SERVER then
+    local distribute = include("mgfx/distribute.lua")
+    distribute()
 end
 ```
 
-The plain GLua distribution is not a hand-written legacy loader and it is not an
-inline copy of the package. It is generated from the same Lux MGFX source, with
-the GMod loader already emitted and the global facade installed for non-Lux
-callers.
+This sends the core Lua files and shaderpack chunks and registers the bundled
+font. Use `distribute({font = false})` if another addon owns font delivery. Demo
+files are excluded unless you explicitly pass `{examples = true}`.
+
+### Load the client API
+
+Keep the returned table local to your addon:
+
+```lua
+local mgfx = include("mgfx/init.lua")
+
+function PANEL:Paint(w, h)
+    mgfx.StartPanel(self, w, h)
+
+    mgfx.RoundedBoxEx(0, 0, w, h, {
+        radius = 10,
+        fill = mgfx.LinearGradient(
+            0, 0, 1, 1,
+            Color(30, 130, 255, 230),
+            Color(255, 210, 110, 230)
+        ),
+        backdrop = {blur = 8, tint = Color(0, 8, 12, 120)},
+    })
+
+    mgfx.EndPanel()
+end
+```
+
+Do not include `cl_mgfx*.lua` files directly. `init.lua` owns module ordering,
+shaderpack attachment, and cleanup of the private load context.
+
+### Optional Plain GLua adapters
+
+Install a global only when old GLua code requires `MGFX.*`:
+
+```lua
+include("mgfx/global.lua")("MGFX", mgfx)
+```
+
+Install commands and diagnostic cvars only in development environments that
+need them:
+
+```lua
+include("mgfx/devtools.lua")(mgfx)
+```
+
+Examples require the global compatibility layer and must be distributed and
+loaded explicitly:
+
+```lua
+-- Server
+include("mgfx/distribute.lua")({examples = true})
+
+-- Client
+local mgfx = include("mgfx/init.lua")
+include("mgfx/global.lua")("MGFX", mgfx)
+include("mgfx/devtools.lua")(mgfx)
+include("mgfx/examples.lua")
+```
+
+The bundled autorun files remain a compatibility adapter for standalone legacy
+installs. They distribute the library, install `_G.MGFX`, and enable devtools,
+but they do not load demos. Omit those autorun adapters when vendoring MGFX as a
+side-effect-free library inside another addon.
 
 <span id="use-from-lux"></span>
 
 ## Use from Lux
 
-Create a Lux project and install the required packages:
+Install the package set:
 
 ```powershell
-luxc init my_addon --std
-Push-Location my_addon
-luxc install @lux/mgfx --from github:TimeWatcher/lux-mgfx
-Pop-Location
+luxc install @lux/mgfx --from github:TimeWatcher/lux-mgfx --tag v0.1.0
 ```
 
-Recommended `lux.toml`:
+Importing `@lux/mgfx` is side-effect free with respect to globals, commands,
+hooks, diagnostic cvars, and examples. The default `mgfx.api` renderer is
+created lazily on its first use:
 
-```toml
-package_id = "my_addon"
-bundle_id = "my_addon"
-
-[target.gmod]
-source_root = "src"
-out = "generated/lua"
-runtime_base = "lux/my_addon"
-autorun = true
-source_comments = "readable"
-
-[target.gmod.realm]
-unknown_external = "warn"
-
-[dependencies]
-"@lux/std" = { github = "TimeWatcher/lux-packages" }
-"@lux/mgfx" = { github = "TimeWatcher/lux-mgfx" }
-```
-
-Lux has no registry. The manifest names concrete package sources with
-`github`, `url`, or `path`, and `lux.lock` records the resolved package graph.
-Use `--tag`, `--branch`, or `--commit` when a project needs a pinned package set.
-
-## Import MGFX
-
-Use the Lux package id:
-
-::: code-group
-
-```lux [Lux]
-import * as mgfx from "@lux/mgfx"
-import * as console from "@lux/mgfx/console"
-
-client fn installMgfx() {
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-}
-```
-
-```lua [Generated Lua Shape]
-local mgfx = __lux_import("@lux/mgfx")
-local console = __lux_import("@lux/mgfx/console")
-
-local function installMgfx()
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-end
-```
-
-:::
-
-`@lux/mgfx` is client-only. Lux's realm checker knows that its public exports
-are available to client code. Import it from a `cl_` file or from a declaration
-marked `client`.
-
-## Draw from Lux
-
-Lux code should draw through `mgfx.api.*`:
-
-::: code-group
-
-```lux [Lux]
+```lux
 import * as mgfx from "@lux/mgfx"
 
 client fn paintPanel(panel, w, h) {
-  mgfx.api.startPanel(panel, w, h)
-
-  mgfx.api.roundedBoxEx(0, 0, w, h, {
+  local draw = mgfx.api
+  draw.startPanel(panel, w, h)
+  draw.roundedBoxEx(0, 0, w, h, {
     radius = 10,
-    fill = mgfx.api.linearGradient(
+    fill = draw.linearGradient(
       0, 0, 1, 1,
       Color(20, 36, 48, 220),
       Color(38, 112, 138, 220)
     ),
-    backdrop = { blur = 7, tint = Color(0, 8, 12, 120) },
   })
-
-  mgfx.api.endPanel()
+  draw.endPanel();
 }
 ```
 
-```lua [Generated Lua Shape]
-local mgfx = __lux_import("@lux/mgfx")
-
-local function paintPanel(panel, w, h)
-  mgfx.api.startPanel(panel, w, h)
-  mgfx.api.roundedBoxEx(0, 0, w, h, {
-    radius = 10,
-    fill = mgfx.api.linearGradient(
-      0, 0, 1, 1,
-      Color(20, 36, 48, 220),
-      Color(38, 112, 138, 220)
-    ),
-    backdrop = {
-      blur = 7,
-      tint = Color(0, 8, 12, 120),
-    },
-  })
-  mgfx.api.endPanel()
-end
-```
-
-:::
-
-This is the preferred style for new Lux code. It keeps imports explicit, gives
-the compiler realm information, and avoids relying on a global.
-
-## Expose the GLua Facade from Lux
-
-If old GLua code or VGUI panels in the same addon need to call `MGFX.*`, install
-the global API once on the client:
-
-::: code-group
-
-```lux [Lux]
-import * as mgfx from "@lux/mgfx"
-import * as console from "@lux/mgfx/console"
-import * as demo from "@lux/mgfx/demo"
-import * as wheelDemo from "@lux/mgfx/wheel_demo"
-
-client fn installClientTools() {
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-  demo.install(api)
-  wheelDemo.install(api)
-}
-
-hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
-```
-
-```lua [Generated Lua Shape]
-local mgfx = __lux_import("@lux/mgfx")
-local console = __lux_import("@lux/mgfx/console")
-local demo = __lux_import("@lux/mgfx/demo")
-local wheelDemo = __lux_import("@lux/mgfx/wheel_demo")
-
-local function installClientTools()
-  local api = mgfx.installGlobal("MGFX")
-  console.install(api)
-  demo.install(api)
-  wheelDemo.install(api)
-end
-
-hook.Add("Initialize", "MyAddonInstallMGFX", installClientTools)
-```
-
-:::
-
-The installed owner uses PascalCase method names for GMod ergonomics. Lux code
-uses the same operations through lower-case `mgfx.api.*` names such as
-`mgfx.api.roundedBoxEx`.
-
-## Build the Addon
-
-Run the GMod backend from the project root:
-
-```powershell
-luxc gmod build --manifest lux.toml
-```
-
-The build step:
-
-- resolves `@lux/mgfx` from `lux.lock`
-- compiles the imported MGFX module parts
-- keeps MGFX exports client-only
-- writes generated Lua under `target.gmod.out`
-- emits source maps for generated Lua
-- generates the GMod loader and optional `autorun` forwarder
-
-Copy or mount the generated `lua/` tree as part of your addon, or point the
-manifest `out` path at the Lua root used by your local development workflow.
-
-## What Happened to the Old Lua Addon?
-
-The original MGFX was a direct Lua addon under `garrysmod/addons/mgfx`. That
-history matters for API continuity, but the current source of truth is the Lux
-package. Do not copy the old hand-written autorun loaders into new projects.
-
-Plain GLua users should use the generated loader distribution. Lux users should
-import `@lux/mgfx` and let `luxc gmod build` generate the loader for that
-project.
-
-The package is split into Lux modules and module parts. For example,
-`widgets/src/module.lux` declares a stable part order:
+Call `mgfx.create()` when your integration needs an explicit independent
+PascalCase owner table:
 
 ```lux
-part order {
-  "module",
-  "cl_base",
-  "cl_progress",
-  "cl_rings",
-  "cl_image_source",
-  "cl_image_mask",
-  "cl_image_draw",
-  "cl_images",
-  "cl_text",
-  "cl_install",
+import * as mgfx from "@lux/mgfx"
+
+client fn createRenderer() = mgfx.create()
+```
+
+### Optional Lux adapters
+
+The global bridge and devtools are separate packages:
+
+```lux
+import * as mgfx from "@lux/mgfx"
+import * as devtools from "@lux/mgfx/devtools"
+import { installGlobal } from "@lux/mgfx/global"
+
+client fn installLegacyTools() {
+  local api = mgfx.create()
+  installGlobal("MGFX", api)
+  devtools.install(api);
 }
 ```
 
-This replaces numeric file prefixes and hand-maintained include order. It also
-lets Lux's module scope rules keep internal helpers private while exporting only
-the public API.
+`@lux/mgfx/devtools` installs the diagnostic cvars, profiler API wrappers, and
+console commands. It does not import demo packages. Import and install demos
+only when they are needed:
+
+```lux
+import * as mgfx from "@lux/mgfx"
+import * as demo from "@lux/mgfx/demo"
+import * as devtools from "@lux/mgfx/devtools"
+import * as wheelDemo from "@lux/mgfx/wheel_demo"
+
+client fn installDemos() {
+  local api = mgfx.create()
+  devtools.install(api)
+  demo.install(api)
+  wheelDemo.install(api);
+}
+```
+
+Run `luxc gmod build --manifest lux.toml` from the project root. Lux resolves
+only the imported package graph, preserves client ownership, writes generated
+Lua and source maps, and emits the configured loader/autorun forwarder for your
+addon.
 
 ## Runtime Commands
 
-The console package can install development commands:
+After devtools is installed, useful client commands include:
 
 ```text
 mgfx_status
 mgfx_selftest
-mgfx_reload
-mgfx_demo
+mgfx_profile_status
+mgfx_profile_panels
+mgfx_profile_hud
 mgfx_text_status
 mgfx_text_cache_clear
+mgfx_text_atlas
 ```
 
-Useful client cvars:
+The removed `mgfx_reload` and `mgfx_hot_reload` commands are not part of the new
+entry model. Demo commands such as `mgfx_demo`, `mgfx_perf_demo`, and
+`mgfx_wheel_demo` exist only after their corresponding examples are installed.
+
+Useful diagnostic cvars include:
 
 ```text
 mgfx_force_fallback 0/1
@@ -304,4 +219,11 @@ mgfx_text_composed 0/1
 mgfx_text_composed_budget 6
 ```
 
-Use diagnostics during development, then disable them for real FPS checks.
+Disable diagnostics for representative FPS testing.
+
+## License
+
+MGFX uses the [Lux MGFX Community License 1.1](./LICENSE). It permits qualifying
+community-server cost recovery and free plugin development; commercial server
+monetization, paid plugins, client work, and other commercial use require
+separate written authorization.

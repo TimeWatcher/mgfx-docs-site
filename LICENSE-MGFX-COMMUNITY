@@ -1,0 +1,147 @@
+Lux MGFX Community License
+Version 1.1
+
+SPDX-License-Identifier: LicenseRef-Lux-MGFX-Community-1.1
+
+Copyright (c) 2026 TimeWatcher.
+
+This license applies to the MGFX package under lux-mgfx/lux/mgfx/, the plain
+Lua implementation under lua-mgfx/lua/mgfx/, the MGFX shader tooling under
+lux-mgfx/tools/mgfx/ and lua-mgfx/tools/, and generated Lua or derivative works
+that include MGFX code, unless a file says otherwise.
+
+1. Acceptance and permission
+
+By exercising any permission granted by this license, you accept its terms.
+Subject to those terms, you may use, copy, modify, merge, publish, distribute,
+and sublicense MGFX for a Permitted Use.
+
+A "Permitted Use" is:
+
+- personal, hobby, educational, academic, research, experimental, or other use
+  not primarily intended for commercial advantage or monetary compensation;
+- operation of a Community Server in accordance with sections 2 and 3; or
+- development, use, modification, publication, or distribution of a Free
+  Plugin in accordance with section 4.
+
+2. Community Servers
+
+A "Community Server" is a game server or related online community whose
+primary purpose is recreation, collaboration, or community participation rather
+than commercial advantage.
+
+Use of MGFX on a Community Server is permitted whether the server is operated
+by an individual, an informal group, or a nonprofit entity. The operator's
+legal form does not determine whether the use is permitted.
+
+3. Community Support and cost recovery
+
+A Community Server may receive voluntary donations, crowdfunding, and
+sponsorships ("Community Support") without becoming a commercial use if all of
+the following conditions are met:
+
+- receipts are used only for Reasonable Operating Costs of that server and its
+  directly related community infrastructure;
+- any retained surplus is a reasonable reserve for future Reasonable Operating
+  Costs and is not distributed or diverted to another purpose;
+- no owner, operator, member, or related party receives profit, dividends,
+  wages, fees, or other personal compensation from the receipts; and
+- support is not required for access to the server and does not purchase game
+  features, gated content, virtual currency, items, gameplay advantages, or
+  queue priority.
+
+Supporters and sponsors may receive public acknowledgment, including a name,
+logo, link, chat color, badge, title, or other non-transferable cosmetic
+recognition, provided it gives no gameplay advantage or exclusive functional
+content.
+
+"Reasonable Operating Costs" means direct, good-faith costs of operating the
+server and its community, such as dedicated hosting or hardware, bandwidth,
+domains, storage, DDoS protection, necessary software and service licenses,
+payment-processing fees, and directly related community infrastructure. It does
+not include compensation for owners, operators, or developers; related-party
+charges above market value; personal assets; or costs unrelated to the server.
+
+The operator must keep records reasonably sufficient to show that Community
+Support is used as required by this section. Donor identities and other personal
+data need not be disclosed.
+
+4. Free Plugins
+
+A "Plugin" is software designed to interoperate with, extend, or support MGFX.
+A "Free Plugin" is a Plugin that every recipient can obtain and use without a
+required payment, subscription, purchase, paid membership, commercial bundle,
+or paid early-access period.
+
+You may develop, use, modify, publish, and distribute Free Plugins. Voluntary
+community funding for development of a Free Plugin is permitted if contributions
+are not payment for private work, exclusivity, feature priority, maintenance,
+support, or another service; payment is not required to obtain or use the
+Plugin; and the same release is made available to the public at no charge no
+later than it is made available to supporters.
+
+A Plugin that interacts with MGFX only through public interfaces and contains
+no MGFX code is not an MGFX-derived portion for purposes of section 6 and may
+use a different license. This does not permit MGFX to be used in connection
+with a Paid Plugin.
+
+A "Paid Plugin" is a Plugin sold, licensed, rented, paywalled, offered by
+subscription or paid membership, provided through paid early access or private
+delivery, included only in a commercial bundle, or developed, customized,
+maintained, or supported as a paid product or service.
+
+5. Commercial use requires a separate license
+
+Commercial Use is not permitted under this license and requires a separate
+written license from the copyright holder. "Commercial Use" includes:
+
+- operating a server that charges for access, membership, features, content,
+  items, virtual currency, gameplay benefits, ranks, or queue priority;
+- receiving or using server revenue outside the Community Support conditions in
+  section 3, including extracting profit or personal compensation;
+- using MGFX to develop, test, operate, market, distribute, maintain, or support
+  a Paid Plugin;
+- using MGFX in client work, paid services, hosted or managed server offerings,
+  revenue-generating or advertising-supported products, or sponsored work that
+  is not Community Support; or
+- any other use primarily intended for or directed toward commercial advantage
+  or monetary compensation.
+
+A use is not Commercial Use merely because it receives Community Support under
+section 3 or permitted community funding for a Free Plugin under section 4.
+
+6. Redistribution conditions
+
+If you distribute MGFX or a derivative work containing MGFX, you must:
+
+- keep this license notice with the distributed copy;
+- keep copyright notices and attribution notices;
+- clearly mark files that you modified; and
+- apply this same license to MGFX-derived portions of the work.
+
+This section applies only to MGFX and MGFX-derived portions. It does not require
+an independent Free Plugin described in section 4 to use this license.
+
+7. Termination and cure
+
+Your rights under this license terminate automatically if you violate its
+terms. If this is your first violation, your rights are reinstated automatically
+if you stop the violation, make reasonable efforts to remedy its effects, and
+come into full compliance within 30 days after receiving written notice. A
+repeated or willful violation is not eligible for automatic reinstatement.
+
+8. No trademark license or endorsement
+
+This license does not grant permission to use the Lux or MGFX names, logos,
+icons, or branding assets except as needed to describe the origin or
+compatibility of the software. It does not imply endorsement by the copyright
+holder or contributors.
+
+9. Disclaimer
+
+MGFX IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH MGFX OR THE USE OR OTHER DEALINGS IN MGFX.

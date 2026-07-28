@@ -2,7 +2,9 @@
 
 These immediate draw helpers cover common HUD meters and radial shapes. They do not store state; pass the current value every frame.
 
-Plain GLua calls `MGFX.*`. Lux calls the same APIs as lowerCamelCase methods on `mgfx.api`.
+Plain GLua calls the PascalCase methods on its local API owner (named `MGFX` in
+the signatures below). Lux calls the same APIs as lowerCamelCase methods on
+`mgfx.api`.
 
 ## Functions
 

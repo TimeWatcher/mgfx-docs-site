@@ -4,20 +4,30 @@
 
 API 名称、Lua 参数名和 shader 术语保留英文；解释性文本统一使用中文。
 
-这些页面只是按绘制任务组织的文档分组，不是模块入口。普通 GLua 代码直接调用 `MGFX.*`，Lux 代码使用 `@lux/mgfx` 的 `mgfx.api.*`。
+这些页面只是按绘制任务组织的文档分组，不是模块入口。普通 GLua 代码调用
+`include("mgfx/init.lua")` 返回表上的 PascalCase 方法；Lux 代码使用 `@lux/mgfx` 的
+`mgfx.api.*`。
+
+详细页面的函数代码块使用 `MGFX` 作为约定的局部 owner 名称：
+
+```lua
+local MGFX = include("mgfx/init.lua")
+```
+
+这种写法不要求、也不会安装 `_G.MGFX`。
 
 ## 运行时名称对照
 
 | 普通 GLua | Lux |
 | --- | --- |
-| `MGFX.StartPanel(...)` | `mgfx.api.startPanel(...)` |
-| `MGFX.RoundedBoxEx(...)` | `mgfx.api.roundedBoxEx(...)` |
-| `MGFX.ImageEx(...)` | `mgfx.api.imageEx(...)` |
-| `MGFX.Mask(...)` | `mgfx.api.mask(...)` |
-| `MGFX.Clip(...)` | `mgfx.api.clip(...)` |
-| `MGFX.ProgressBarEx(...)` | `mgfx.api.progressBarEx(...)` |
-| `MGFX.LinearGradient(...)` | `mgfx.api.linearGradient(...)` |
-| `MGFX.TextEx(...)` | `mgfx.api.textEx(...)` |
+| `mgfx.StartPanel(...)` | `mgfx.api.startPanel(...)` |
+| `mgfx.RoundedBoxEx(...)` | `mgfx.api.roundedBoxEx(...)` |
+| `mgfx.ImageEx(...)` | `mgfx.api.imageEx(...)` |
+| `mgfx.Mask(...)` | `mgfx.api.mask(...)` |
+| `mgfx.Clip(...)` | `mgfx.api.clip(...)` |
+| `mgfx.ProgressBarEx(...)` | `mgfx.api.progressBarEx(...)` |
+| `mgfx.LinearGradient(...)` | `mgfx.api.linearGradient(...)` |
+| `mgfx.TextEx(...)` | `mgfx.api.textEx(...)` |
 
 ## 按需求选择
 
